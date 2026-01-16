@@ -1,0 +1,92 @@
+================================================================================
+FEATURE SELECTION SUMMARY - ALL DATASETS
+================================================================================
+
+Generated: 2026-01-16 08:54:30
+Total datasets processed: 10
+
+--------------------------------------------------------------------------------
+OVERALL STATISTICS
+--------------------------------------------------------------------------------
+Average reduction: 93.68%
+Total original features: 20390
+Total selected features: 439
+Total samples: 335646
+Total malware samples: 128819
+Total benign samples: 206827
+
+--------------------------------------------------------------------------------
+INDIVIDUAL DATASET DETAILS
+--------------------------------------------------------------------------------
+
+Dataset: kronodroid_real_device
+  Original features: 286
+  Selected features: 29
+  Reduction: 89.86%
+  Samples: 78137 (Malware: 41382, Benign: 36755)
+  Output: results/kronodroid_real_device/
+
+Dataset: kronodroid_emulator
+  Original features: 276
+  Selected features: 25
+  Reduction: 90.94%
+  Samples: 63991 (Malware: 28745, Benign: 35246)
+  Output: results/kronodroid_emulator/
+
+Dataset: androcrawl
+  Original features: 141
+  Selected features: 12
+  Reduction: 91.49%
+  Samples: 96744 (Malware: 10170, Benign: 86574)
+  Output: results/androcrawl/
+
+Dataset: defensedroid_apicalls_katz
+  Original features: 6002
+  Selected features: 75
+  Reduction: 98.75%
+  Samples: 10476 (Malware: 5254, Benign: 5222)
+  Output: results/defensedroid_apicalls_katz/
+
+Dataset: defensedroid_prs
+  Original features: 2877
+  Selected features: 92
+  Reduction: 96.8%
+  Samples: 11975 (Malware: 6000, Benign: 5975)
+  Output: results/defensedroid_prs/
+
+Dataset: defensedroid_apicalls_degree
+  Original features: 6002
+  Selected features: 75
+  Reduction: 98.75%
+  Samples: 10476 (Malware: 5254, Benign: 5222)
+  Output: results/defensedroid_apicalls_degree/
+
+Dataset: defensedroid_apicalls_closeness
+  Original features: 4274
+  Selected features: 81
+  Reduction: 98.1%
+  Samples: 10476 (Malware: 5254, Benign: 5222)
+  Output: results/defensedroid_apicalls_closeness/
+
+Dataset: adroit
+  Original features: 166
+  Selected features: 15
+  Reduction: 90.96%
+  Samples: 11476 (Malware: 3418, Benign: 8058)
+  Output: results/adroit/
+
+Dataset: drebin215
+  Original features: 215
+  Selected features: 22
+  Reduction: 89.77%
+  Samples: 15031 (Malware: 5555, Benign: 9476)
+  Output: results/drebin215/
+
+Dataset: android_permissions
+  Original features: 151
+  Selected features: 13
+  Reduction: 91.39%
+  Samples: 26864 (Malware: 17787, Benign: 9077)
+  Output: results/android_permissions/
+
+================================================================================

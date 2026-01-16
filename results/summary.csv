@@ -1,0 +1,11 @@
+dataset,original_features,selected_features,reduction_percentage,original_samples,malware_samples,benign_samples
+kronodroid_real_device,286,29,89.86,78137,41382,36755
+kronodroid_emulator,276,25,90.94,63991,28745,35246
+androcrawl,141,12,91.49,96744,10170,86574
+defensedroid_apicalls_katz,6002,75,98.75,10476,5254,5222
+defensedroid_prs,2877,92,96.8,11975,6000,5975
+defensedroid_apicalls_degree,6002,75,98.75,10476,5254,5222
+defensedroid_apicalls_closeness,4274,81,98.1,10476,5254,5222
+adroit,166,15,90.96,11476,3418,8058
+drebin215,215,22,89.77,15031,5555,9476
+android_permissions,151,13,91.39,26864,17787,9077

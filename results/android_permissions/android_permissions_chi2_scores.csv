@@ -1,0 +1,44 @@
+feature,chi2_score
+Network communication : view network state (S),258.06919027299165
+Your personal information : write Browser's history and bookmarks (D),151.21986332712413
+Your personal information : read Browser's history and bookmarks (D),128.24831595722634
+Your location : mock location sources for testing (D),105.11788985025876
+Your location : fine (GPS) location (D),91.57131905003018
+Phone calls : read phone state and identity (D),91.00723219688368
+Your accounts : discover known accounts (S),87.76957094324072
+System tools : set wallpaper (S),80.76758189457416
+Your personal information : read sensitive log data (D),72.6441540405714
+System tools : modify global system settings (D),54.57466092646953
+Network communication : full Internet access (D),47.3190892392573
+System tools : retrieve running applications (D),46.657669981091615
+Services that cost you money : directly call phone numbers (D),45.2728528448138
+Your location : access extra location provider commands (S),45.034991249121205
+Hardware controls : control vibrator (S),42.900854508027805
+Your accounts : manage the accounts list (D),34.44274397416519
+Storage : modify/delete USB storage contents modify/delete SD card contents (D),30.14211831134432
+System tools : automatically start at boot (S),29.465153373615863
+System tools : prevent device from sleeping (D),25.564923481597347
+Your personal information : read contact data (D),22.08846531732199
+Your personal information : add or modify calendar events and send email to guests (D),14.761349738043275
+Your personal information : read calendar events (D),14.393816197195084
+Hardware controls : take pictures and videos (D),11.327179750719287
+Your accounts : use the authentication credentials of an account (D),10.82883477936048
+Your personal information : write contact data (D),9.53004564516179
+Hardware controls : record audio (D),8.633482739384881
+System tools : mount and unmount filesystems (D),5.946013735089716
+Services that cost you money : send SMS messages (D),5.607104520393907
+System tools : kill background processes (S),4.057629141982587
+Hardware controls : control flashlight (S),3.732452999756646
+System tools : bluetooth administration (D),3.0856296622994
+Your location : coarse (network-based) location (D),2.344662223221522
+System tools : change Wi-Fi state (D),2.270295171125355
+Hardware controls : change your audio settings (D),2.14632140943945
+Your messages : read SMS or MMS (D),1.952259839709173
+System tools : change network connectivity (D),1.65404260918511
+Your messages : edit SMS or MMS (D),1.5999606485777913
+System tools : disable keylock (D),1.0588439150108775
+Your messages : receive SMS (D),0.853668891892544
+Network communication : receive data from Internet (S),0.3199033001976116
+Network communication : create Bluetooth connections (D),0.22903700370775465
+Phone calls : intercept outgoing calls (D),0.0017380457282078652
+Network communication : view Wi-Fi state (S),1.981902012332988e-06

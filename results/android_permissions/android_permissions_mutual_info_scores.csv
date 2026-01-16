@@ -1,0 +1,44 @@
+feature,mi_score
+Network communication : view network state (S),0.011949894448294529
+Network communication : full Internet access (D),0.009399953329346067
+System tools : modify global system settings (D),0.007009059023410202
+Hardware controls : control vibrator (S),0.0068218515217304265
+Services that cost you money : directly call phone numbers (D),0.0043540972648821175
+System tools : retrieve running applications (D),0.003906910051892032
+System tools : change network connectivity (D),0.0031660936737114564
+Your location : access extra location provider commands (S),0.0026695628928561366
+Network communication : view Wi-Fi state (S),0.0024697289496886654
+Your location : coarse (network-based) location (D),0.002257943688605213
+System tools : change Wi-Fi state (D),0.0019397509463574547
+Hardware controls : control flashlight (S),0.0018552951240027316
+Your messages : receive SMS (D),0.001836095272305771
+Your personal information : write Browser's history and bookmarks (D),0.0017169008429358534
+Phone calls : read phone state and identity (D),0.0012079913241236362
+Your personal information : add or modify calendar events and send email to guests (D),0.0010551324765339931
+System tools : kill background processes (S),0.0005837623146047743
+Your personal information : read sensitive log data (D),0.0005274659653029534
+Your personal information : read Browser's history and bookmarks (D),0.00022357614982082552
+Phone calls : intercept outgoing calls (D),0.0
+Network communication : receive data from Internet (S),0.0
+Hardware controls : take pictures and videos (D),0.0
+Network communication : create Bluetooth connections (D),0.0
+Hardware controls : record audio (D),0.0
+Hardware controls : change your audio settings (D),0.0
+System tools : automatically start at boot (S),0.0
+Storage : modify/delete USB storage contents modify/delete SD card contents (D),0.0
+Your accounts : discover known accounts (S),0.0
+System tools : set wallpaper (S),0.0
+System tools : prevent device from sleeping (D),0.0
+System tools : mount and unmount filesystems (D),0.0
+System tools : disable keylock (D),0.0
+Services that cost you money : send SMS messages (D),0.0
+System tools : bluetooth administration (D),0.0
+Your accounts : use the authentication credentials of an account (D),0.0
+Your messages : read SMS or MMS (D),0.0
+Your messages : edit SMS or MMS (D),0.0
+Your location : mock location sources for testing (D),0.0
+Your location : fine (GPS) location (D),0.0
+Your accounts : manage the accounts list (D),0.0
+Your personal information : read calendar events (D),0.0
+Your personal information : read contact data (D),0.0
+Your personal information : write contact data (D),0.0

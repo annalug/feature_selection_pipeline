@@ -1,0 +1,13 @@
+feature
+Contains URL known to be suspicious
+Api Call: Landroid/app/Service;->onLowMemory
+Api Call: Landroid/telephony/TelephonyManager;->getSimOperatorName
+Reads phone data at startup
+Api Call: Landroid/content/pm/PackageManager;->getPreferredActivities
+Api Call: Landroid/provider/Browser;->getAllBookmarks
+Api Call: Landroid/telephony/TelephonyManager;->getLine1Number
+Api Call: Landroid/content/Intent;->describeContents
+Api Call: Landroid/os/Parcel;->marshall
+Notification Api Call: Landroid/app/Notification;-><init>
+Api Call: Landroid/telephony/TelephonyManager;->getDeviceId
+Api Call: Landroid/content/Context;->startService

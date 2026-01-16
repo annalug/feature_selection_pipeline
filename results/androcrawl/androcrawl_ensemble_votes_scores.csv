@@ -1,0 +1,19 @@
+feature,votes
+Contains URL known to be suspicious,3
+Api Call: Landroid/app/Service;->onLowMemory,3
+Api Call: Landroid/telephony/TelephonyManager;->getSimOperatorName,3
+Reads phone data at startup,3
+Api Call: Landroid/content/pm/PackageManager;->getPreferredActivities,3
+Api Call: Landroid/provider/Browser;->getAllBookmarks,3
+Api Call: Landroid/telephony/TelephonyManager;->getLine1Number,3
+Api Call: Landroid/content/Intent;->describeContents,3
+Api Call: Landroid/os/Parcel;->marshall,3
+Notification Api Call: Landroid/app/Notification;-><init>,3
+Api Call: Landroid/telephony/TelephonyManager;->getDeviceId,3
+Api Call: Landroid/content/Context;->startService,3
+Api Call: Landroid/accounts/AccountManager;->getAccounts,1
+Harmless Permission: INSTALL_SHORTCUT,1
+Contains Hardcoded URLs,1
+Communication: ACCESS_NETWORK_STATE,1
+Api Call: Landroid/telephony/TelephonyManager;->getSimSerialNumber,1
+Api Call: Landroid/content/Intent;->setType,1

@@ -1,0 +1,69 @@
+feature,mi_score
+Contains URL known to be suspicious,0.2433847860878413
+Api Call: Landroid/app/Service;->onLowMemory,0.16427681469254107
+Api Call: Landroid/telephony/TelephonyManager;->getSimOperatorName,0.13255931050829206
+Api Call: Landroid/telephony/TelephonyManager;->getDeviceId,0.09905071875658966
+Notification Api Call: Landroid/app/Notification;-><init>,0.08274876682436316
+Reads phone data at startup,0.07305850436849859
+Api Call: Landroid/telephony/TelephonyManager;->getLine1Number,0.0655788781801232
+Api Call: Landroid/content/pm/PackageManager;->getPreferredActivities,0.04795058609330938
+Api Call: Landroid/provider/Browser;->getAllBookmarks,0.045827348528061584
+Api Call: Landroid/os/Parcel;->marshall,0.04295331992332918
+Api Call: Landroid/content/Intent;->describeContents,0.04232130495202768
+Api Call: Landroid/content/Context;->startService,0.03502312494030413
+Contains Hardcoded URLs,0.027764026387193885
+Communication: ACCESS_NETWORK_STATE,0.018741319926316446
+Api Call: Landroid/content/Intent;->setType,0.017954568748997257
+Communication: INTERNET,0.016895415579268214
+Valid Domain in Package Name,0.016493628033453556
+Package Domain Exists,0.01551890313006199
+Obsfuscation present,0.015234459247543741
+Api Call: Landroid/accounts/AccountManager;->getAccounts,0.014614378734486566
+Api Call: Ljavax/crypto/Cipher;->getInstance,0.012059574569493803
+Api Call: Landroid/content/Intent;->setDataAndType,0.009301896476647142
+Dangerous Permission: WRITE_EXTERNAL_STORAGE,0.008825266337258997
+Can Steal Data: READ_PHONE_STATE,0.007818253306458578
+Suspicious Intent Filter: BOOT_COMPLETED,0.005785799604277164
+Dangerous Permission: RECEIVE_BOOT_COMPLETED,0.0056100367933908935
+Harmless Permission: VIBRATE,0.0049364843380268475
+Harmless Permission: INSTALL_SHORTCUT,0.004691513918613666
+Harmless Permission: WAKE_LOCK,0.004130105800597805
+Can Steal Data: ACCESS_WIFI_STATE,0.0036568788752302517
+Can Steal Data: ACCESS_COARSE_LOCATION,0.003640585150316955
+Can Steal Data: ACCESS_LOCATION_EXTRA_COMMANDS,0.003605637489606295
+Can Steal Data: ACCESS_FINE_LOCATION,0.0030215343035873143
+Can Steal Data: READ_HISTORY_BOOKMARKS,0.00300830394797158
+Api Call: Ljava/lang/ClassLoader;->loadClass,0.0022348450865521396
+Api Call: Landroid/telephony/TelephonyManager;->getSimSerialNumber,0.002171089355577971
+Content: content://sms,0.0019202346061180098
+Api Call: Landroid/telephony/TelephonyManager;->getCellLocation,0.001908828474311175
+Starts service at startup,0.001538917677604168
+Package Name contains Tetragrams,0.0013291271132713778
+Api Call: Landroid/content/pm/PackageManager;->getInstalledPackages,0.0012700365922300172
+Harmless Permission: UNINSTALL_SHORTCUT,0.001162086322702427
+Dangerous Permission: INSTALL_PACKAGES,0.0010987068620109675
+Api Call: Landroid/app/ActivityManager;->getMemoryInfo,0.0009225017483387443
+Can Steal Data: GET_ACCOUNTS,0.0008515460774596306
+Api Call: Ljava/lang/System;->loadLibrary,0.000842752645532574
+Can Steal Data: READ_CONTACTS,0.0008218779234911988
+Can Steal Data: READ_SMS,0.0007768035573039178
+Communication: SEND_SMS,0.0007540318618246555
+Harmless Permission: MODIFY_AUDIO_SETTINGS,0.0007441621814361365
+Can Steal Data: READ_EXTERNAL_STORAGE,0.0007027218355988296
+Dangerous Permission: WRITE_HISTORY_BOOKMARKS,0.0005825437837547742
+Can Steal Data: ACCESS_MOCK_LOCATION,0.0005670906079264793
+Harmless Permission: SET_WALLPAPER,0.0005199718489579119
+Can Steal Data: CAMERA,0.0004646246801482956
+Api Call: Landroid/app/ActivityManager;->getRunningServices,0.0004610337616584026
+Communication: BLUETOOTH,0.0004424698407852201
+Can Steal Data: RECORD_AUDIO,0.00042359704231365036
+Api Call: Landroid/telephony/SmsManager;->sendTextMessage,0.00026706534031095686
+Api Call: Ldalvik/system/DexClassLoader;-><init>,0.00025258840271513705
+Can Steal Data: RECEIVE_SMS,0.00016559081300471234
+Dangerous Permission: DISABLE_KEYGUARD,0.000160515417732654
+Dangerous Permission: READ_LOGS,0.0
+Api Call: Landroid/telephony/TelephonyManager;->getSubscriberId,0.0
+Communication: CHANGE_NETWORK_STATE,0.0
+Can Steal Data: GET_TASKS,0.0
+Harmless Permission: FLASHLIGHT,0.0
+Harmless Permission: WRITE_CONTACTS,0.0

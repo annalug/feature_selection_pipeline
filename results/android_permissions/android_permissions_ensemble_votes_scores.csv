@@ -1,0 +1,27 @@
+feature,votes
+Network communication : view network state (S),3
+Phone calls : read phone state and identity (D),3
+Hardware controls : control vibrator (S),3
+Services that cost you money : directly call phone numbers (D),3
+System tools : retrieve running applications (D),3
+Network communication : full Internet access (D),3
+Your personal information : write Browser's history and bookmarks (D),2
+Your location : fine (GPS) location (D),2
+System tools : modify global system settings (D),2
+Your accounts : discover known accounts (S),2
+Your location : access extra location provider commands (S),2
+Network communication : view Wi-Fi state (S),2
+Your location : coarse (network-based) location (D),2
+Your personal information : read Browser's history and bookmarks (D),1
+Your personal information : read sensitive log data (D),1
+System tools : set wallpaper (S),1
+Your location : mock location sources for testing (D),1
+System tools : change network connectivity (D),1
+System tools : change Wi-Fi state (D),1
+Hardware controls : control flashlight (S),1
+Your messages : receive SMS (D),1
+Storage : modify/delete USB storage contents modify/delete SD card contents (D),1
+System tools : prevent device from sleeping (D),1
+System tools : automatically start at boot (S),1
+Hardware controls : take pictures and videos (D),1
+Your personal information : read contact data (D),1

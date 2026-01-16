@@ -1,0 +1,69 @@
+feature,importance
+Contains URL known to be suspicious,0.2890711828620179
+Api Call: Landroid/app/Service;->onLowMemory,0.19102751557306424
+Api Call: Landroid/telephony/TelephonyManager;->getSimOperatorName,0.10455705565063439
+Api Call: Landroid/content/pm/PackageManager;->getPreferredActivities,0.0441789301713264
+Reads phone data at startup,0.04076434338097685
+Notification Api Call: Landroid/app/Notification;-><init>,0.034288912514150414
+Api Call: Landroid/telephony/TelephonyManager;->getDeviceId,0.028424331217383324
+Api Call: Landroid/telephony/TelephonyManager;->getLine1Number,0.027034433689036987
+Api Call: Landroid/content/Intent;->describeContents,0.023788981122378823
+Api Call: Landroid/provider/Browser;->getAllBookmarks,0.01964740836130466
+Api Call: Landroid/os/Parcel;->marshall,0.015013232020871944
+Api Call: Landroid/content/Context;->startService,0.011637072023282569
+Api Call: Landroid/telephony/TelephonyManager;->getSimSerialNumber,0.011425591159005533
+Api Call: Landroid/content/Intent;->setType,0.00900604508491223
+Api Call: Ljavax/crypto/Cipher;->getInstance,0.00861364391122316
+Api Call: Landroid/content/Intent;->setDataAndType,0.008369621460342385
+Api Call: Landroid/accounts/AccountManager;->getAccounts,0.007701100821159563
+Obsfuscation present,0.0069961924729751886
+Api Call: Landroid/telephony/TelephonyManager;->getCellLocation,0.0067296181076025195
+Api Call: Landroid/telephony/TelephonyManager;->getSubscriberId,0.0065424009064459394
+Api Call: Landroid/telephony/SmsManager;->sendTextMessage,0.005660568090472012
+Dangerous Permission: WRITE_EXTERNAL_STORAGE,0.0053037984499771556
+Api Call: Ljava/lang/ClassLoader;->loadClass,0.0050912582663513225
+Package Domain Exists,0.005001196119918742
+Can Steal Data: READ_PHONE_STATE,0.004484086778509381
+Api Call: Ljava/lang/System;->loadLibrary,0.004400594699939106
+Harmless Permission: WAKE_LOCK,0.004249614051692711
+Communication: ACCESS_NETWORK_STATE,0.004170639421880189
+Package Name contains Tetragrams,0.003946400241695758
+Harmless Permission: VIBRATE,0.003939748205750769
+Api Call: Landroid/app/ActivityManager;->getRunningServices,0.003926913359334661
+Valid Domain in Package Name,0.003469529099164805
+Can Steal Data: ACCESS_COARSE_LOCATION,0.003298193831492127
+Can Steal Data: ACCESS_WIFI_STATE,0.003290602979006132
+Api Call: Landroid/content/pm/PackageManager;->getInstalledPackages,0.002907250824651209
+Communication: INTERNET,0.0028111173609765496
+Can Steal Data: ACCESS_FINE_LOCATION,0.002793854165479835
+Contains Hardcoded URLs,0.0023314562134667347
+Api Call: Landroid/app/ActivityManager;->getMemoryInfo,0.0022963571130360104
+Suspicious Intent Filter: BOOT_COMPLETED,0.002162807792883556
+Can Steal Data: GET_ACCOUNTS,0.002110040006069657
+Content: content://sms,0.0020616745157874443
+Api Call: Ldalvik/system/DexClassLoader;-><init>,0.0020491424713002743
+Starts service at startup,0.0020448011030659366
+Harmless Permission: SET_WALLPAPER,0.0018630000873546104
+Dangerous Permission: RECEIVE_BOOT_COMPLETED,0.0018359587393331506
+Harmless Permission: INSTALL_SHORTCUT,0.0017953018045133759
+Can Steal Data: CAMERA,0.0014601366424597763
+Can Steal Data: READ_CONTACTS,0.0013466292689586947
+Can Steal Data: GET_TASKS,0.001301544908115439
+Can Steal Data: ACCESS_LOCATION_EXTRA_COMMANDS,0.0009964009693012351
+Can Steal Data: READ_HISTORY_BOOKMARKS,0.0009559237943697272
+Communication: SEND_SMS,0.0008634230836474573
+Can Steal Data: READ_EXTERNAL_STORAGE,0.0008629304415459728
+Can Steal Data: RECORD_AUDIO,0.0008379565356068549
+Harmless Permission: MODIFY_AUDIO_SETTINGS,0.0007343308731895604
+Harmless Permission: UNINSTALL_SHORTCUT,0.000730767014612449
+Dangerous Permission: WRITE_HISTORY_BOOKMARKS,0.0007231753815662703
+Harmless Permission: FLASHLIGHT,0.000690559998828731
+Harmless Permission: WRITE_CONTACTS,0.0005940183613324549
+Dangerous Permission: READ_LOGS,0.0005825270143001344
+Can Steal Data: READ_SMS,0.0005674661125138373
+Communication: BLUETOOTH,0.0005193807996947576
+Can Steal Data: RECEIVE_SMS,0.0005099944539783076
+Dangerous Permission: DISABLE_KEYGUARD,0.0004438897775961122
+Dangerous Permission: INSTALL_PACKAGES,0.0004352622672770359
+Communication: CHANGE_NETWORK_STATE,0.00038725021517190363
+Can Steal Data: ACCESS_MOCK_LOCATION,0.00034291378273486366

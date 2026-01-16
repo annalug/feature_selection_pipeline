@@ -1,0 +1,44 @@
+feature,importance
+Network communication : view network state (S),0.07256562839781427
+Storage : modify/delete USB storage contents modify/delete SD card contents (D),0.06146337969621921
+Hardware controls : control vibrator (S),0.05434398934717716
+System tools : prevent device from sleeping (D),0.048880043272557405
+Your location : fine (GPS) location (D),0.04632092734759704
+Phone calls : read phone state and identity (D),0.0447921042768506
+Network communication : view Wi-Fi state (S),0.04260929773116597
+Your location : coarse (network-based) location (D),0.042361660951132134
+System tools : automatically start at boot (S),0.03587956394787526
+Hardware controls : take pictures and videos (D),0.031605758878387485
+Your personal information : read contact data (D),0.03043892713982535
+Services that cost you money : directly call phone numbers (D),0.02881787359106993
+Network communication : full Internet access (D),0.02751608561962104
+Your accounts : discover known accounts (S),0.026370625074167334
+System tools : retrieve running applications (D),0.025203732243459412
+System tools : set wallpaper (S),0.02349820235364843
+Hardware controls : record audio (D),0.022877040944873975
+System tools : modify global system settings (D),0.022369578137728042
+Services that cost you money : send SMS messages (D),0.019757256174859194
+System tools : kill background processes (S),0.018929803228864936
+Network communication : receive data from Internet (S),0.01864975100969899
+Hardware controls : change your audio settings (D),0.01851144879613643
+Your personal information : read sensitive log data (D),0.016097097753891055
+Your personal information : write contact data (D),0.015187381815256994
+System tools : change Wi-Fi state (D),0.015075320201659676
+Your messages : receive SMS (D),0.014357211034433787
+System tools : mount and unmount filesystems (D),0.014129923468333083
+Hardware controls : control flashlight (S),0.013986227225829945
+System tools : disable keylock (D),0.0131465228154422
+Your location : mock location sources for testing (D),0.013004772867859043
+System tools : change network connectivity (D),0.012767089099030458
+Your personal information : write Browser's history and bookmarks (D),0.012679692154641655
+Your messages : read SMS or MMS (D),0.01178647167342784
+Your personal information : read Browser's history and bookmarks (D),0.011522978539966658
+Network communication : create Bluetooth connections (D),0.011501708163553361
+Your location : access extra location provider commands (S),0.010734631309694655
+Phone calls : intercept outgoing calls (D),0.008198947413157956
+Your accounts : use the authentication credentials of an account (D),0.008036857664362651
+System tools : bluetooth administration (D),0.007949670578930952
+Your personal information : read calendar events (D),0.006908308883176573
+Your messages : edit SMS or MMS (D),0.006670305740805991
+Your accounts : manage the accounts list (D),0.00647012314142953
+Your personal information : add or modify calendar events and send email to guests (D),0.006026080294386302
