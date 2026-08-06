@@ -27,7 +27,9 @@
 #   ./reproduce.sh --minimal                         # ~2 min smoke test (Teste minimo)
 #   ./reproduce.sh                                   # in-repo claims (default data ./data/Originais)
 #   ./reproduce.sh --only p1,ablation                # subset of in-repo claims
-#   ./reproduce.sh --with-p2 --pin-commit <SHA>      # also run the external MalDataGen P2
+#   ./reproduce.sh --with-p2 --pin-commit <SHA>      # in-repo claims (needs ./data/Originais) + P2
+#   ./reproduce.sh --p2-only --pin-commit <SHA>      # ONLY Protocol P2 — no local data needed,
+#                                                     # P2 fetches/clones its own datasets/repo
 #   ./reproduce.sh --with-p2 --p2-import ./reduzidos # copy reduced CSVs into Datasets/, then run P2
 #   ./reproduce.sh --with-p2 --p2-no-venv            # P2 using the current python3 (no venv)
 #   ./reproduce.sh --feature-selection --data-folder ./my_datasets  # run main.py's ensemble
@@ -40,6 +42,8 @@
 #           (non-destructive cp; Git-LFS pointers are skipped). This replaces move_datasets.sh.
 #           This is the "already fetching from configured datasets" path: it needs no
 #           --data-folder because it reads from <P2_REPO_DIR>/Datasets (or --p2-data-dir).
+#           --with-p2 ADDS P2 on top of the in-repo claims (needs ./data/Originais too);
+#           --p2-only RUNS ONLY P2 and skips the in-repo claims, so ./data/Originais is not required.
 #
 # Feature selection (main.py):  --feature-selection runs the chi2 + mutual-information +
 #           Random Forest ensemble selector (main.py) over every *.csv in the folder given
@@ -73,6 +77,7 @@ P2_PYTHON=""                                # resolved after venv setup
 
 MINIMAL=0; WITH_P2=0; ASSUME_YES=0; ONLY=""
 FEATURE_SELECTION=0; DATA_FOLDER=""
+SKIP_CLAIMS=0                                # 1 = --p2-only: skip in-repo claims, no local data needed
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -81,6 +86,7 @@ while [[ $# -gt 0 ]]; do
         --only)               ONLY="$2";     shift 2 ;;
         --minimal)             MINIMAL=1;     shift ;;
         --with-p2)             WITH_P2=1;     shift ;;
+        --p2-only)             WITH_P2=1; SKIP_CLAIMS=1; shift ;;
         --p2-data-dir)         P2_DATA_DIR="$2"; shift 2 ;;
         --p2-import)           P2_IMPORT="$2";   shift 2 ;;
         --p2-no-venv)          P2_USE_VENV=0; shift ;;
@@ -513,23 +519,31 @@ echo "=========================================================="
 echo "Repo root : $REPO_ROOT"
 if [[ $FEATURE_SELECTION -eq 1 ]]; then
     echo "Data folder : $DATA_FOLDER  (--feature-selection)"
+elif [[ $SKIP_CLAIMS -eq 1 ]]; then
+    echo "Data dir  : (not needed — --p2-only)"
 else
     echo "Data dir  : $DATA_DIR"
 fi
 echo "Output    : $OUT_DIR"
-echo "Mode      : $([[ $FEATURE_SELECTION -eq 1 ]] && echo FEATURE-SELECTION || { [[ $MINIMAL -eq 1 ]] && echo MINIMAL || echo FULL; })$([[ $WITH_P2 -eq 1 ]] && echo ' +P2')"
+echo "Mode      : $(
+    if   [[ $FEATURE_SELECTION -eq 1 ]]; then echo FEATURE-SELECTION
+    elif [[ $SKIP_CLAIMS -eq 1 ]];       then echo P2-ONLY
+    elif [[ $MINIMAL -eq 1 ]];           then echo MINIMAL
+    else                                       echo FULL
+    fi
+)$([[ $WITH_P2 -eq 1 && $SKIP_CLAIMS -eq 0 ]] && echo ' +P2')"
 echo ""
 echo "Security  : in-repo claims run locally, need no root/sudo and no network."
-echo "            --with-p2 clones an external repo and installs deps (isolated venv by default)."
+echo "            --with-p2/--p2-only clones an external repo and installs deps (isolated venv by default)."
 echo ""
 
 check_python
 install_dependencies
 
-if [[ $FEATURE_SELECTION -eq 0 ]] && [[ ! -d "$DATA_DIR" ]] && [[ "$ONLY" != "pvalue" ]]; then
+if [[ $FEATURE_SELECTION -eq 0 ]] && [[ $SKIP_CLAIMS -eq 0 ]] && [[ ! -d "$DATA_DIR" ]] && [[ "$ONLY" != "pvalue" ]]; then
     echo "❌ Data directory not found: $DATA_DIR"
     echo "   Get the datasets from https://github.com/AILabs4All/datasets-mh30plus (Git LFS),"
-    echo "   or pass --data-dir. (The Wilcoxon audit 'pvalue' needs no data.)"
+    echo "   or pass --data-dir. (The Wilcoxon audit 'pvalue' needs no data; --p2-only needs none either.)"
     exit 1
 fi
 
@@ -537,6 +551,7 @@ confirm "Proceed?" || { echo "Cancelled."; exit 1; }
 
 START=$(date +%s)
 if [[ $FEATURE_SELECTION -eq 1 ]]; then run_feature_selection
+elif [[ $SKIP_CLAIMS -eq 1 ]]; then :   # --p2-only: in-repo claims intentionally skipped
 elif [[ $MINIMAL -eq 1 ]]; then run_minimal
 else run_claims; fi
 [[ $WITH_P2 -eq 1 ]] && run_p2

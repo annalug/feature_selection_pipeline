@@ -246,8 +246,8 @@ python3 main.py --data-dir /path/to/your/datasets --out-dir ./results \
     --target-col class --correlation-threshold 0.95
 ```
 
-> ℹ️ This is separate from Protocol P2 (`--with-p2`), which already reads from its own
-> configured dataset location (`<P2_REPO_DIR>/Datasets`, or `--p2-data-dir` /
+> ℹ️ This is separate from Protocol P2 (`--with-p2` / `--p2-only`), which already reads from
+> its own configured dataset location (`<P2_REPO_DIR>/Datasets`, or `--p2-data-dir` /
 > `--p2-import`) and needs no `--data-folder` — see "Claim #4" under Experiments below.
 
 ---
@@ -324,6 +324,10 @@ the in-repo scripts:
 # from the repo root; clones/pins MalDataGen and runs AE+VAE.
 # place the reduced CSVs in Maldatagen_additional_metrics/Datasets/ (or pass --p2-data-dir):
 ./reproduce.sh --with-p2 --pin-commit <MALDATAGEN_COMMIT_SHA>
+
+# --with-p2 also runs the in-repo claims above it (needs ./data/Originais). To run ONLY
+# Protocol P2 — no local dataset required, since P2 clones/reads its own — use --p2-only:
+./reproduce.sh --p2-only --pin-commit <MALDATAGEN_COMMIT_SHA>
 ```
 
 - **Model configuration (as in the paper):**
