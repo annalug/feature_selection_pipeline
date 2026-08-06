@@ -14,14 +14,28 @@
 #       [C4] Table 5       — generalisation across classifiers (pipeline_multiclf.py)
 #       stat. note         — Wilcoxon floor at n=5             (audit_pvalue.py)
 #   * external claim (optional, opt-in with --with-p2):
-#       [P2] Table 4 / Fig 2 — TSTR via MalDataGen (AE + VAE)
+#       [P2] Table 4 / Fig 2 — TSTR via MalDataGen (AE + VAE) on the reduced
+#                              datasets produced by each feature-selection method
+#                              (statistical_ / rfe_ / semidroid_ / lasso_*)
+#
+# The P2 orchestration mirrors the battle-tested run_experiments_2.sh:
+#   dedicated venv, Git-LFS pointer detection, pre-creation of the MalDataGen
+#   output tree (avoids FileNotFoundError races), per-experiment logging,
+#   and a summary broken down by feature-selection method.
 #
 # USAGE
 #   ./reproduce.sh --minimal                         # ~2 min smoke test (Teste minimo)
 #   ./reproduce.sh                                   # in-repo claims (default data ./data/Originais)
 #   ./reproduce.sh --only p1,ablation                # subset of in-repo claims
 #   ./reproduce.sh --with-p2 --pin-commit <SHA>      # also run the external MalDataGen P2
+#   ./reproduce.sh --with-p2 --p2-import ./reduzidos # copy reduced CSVs into Datasets/, then run P2
+#   ./reproduce.sh --with-p2 --p2-no-venv            # P2 using the current python3 (no venv)
 #   ./reproduce.sh --yes                             # non-interactive
+#
+# P2 data:  the reduced CSVs (statistical_/rfe_/semidroid_/lasso_*) must end up in
+#           <P2_REPO_DIR>/Datasets/. Either place them there yourself, point to them
+#           with --p2-data-dir <ABS_DIR>, or let --p2-import <DIR> copy them in for you
+#           (non-destructive cp; Git-LFS pointers are skipped). This replaces move_datasets.sh.
 #
 # KEYS for --only: p1, ablation, cost, multiclf, pvalue
 # ==========================================================================
@@ -41,21 +55,27 @@ OUT_DIR="./reproduction_output"
 P2_REPO_URL="https://github.com/MalwareDataLab/Maldatagen_additional_metrics.git"
 P2_REPO_DIR="Maldatagen_additional_metrics"
 P2_DATA_DIR=""                              # reduced CSVs for P2 (default: <P2_REPO_DIR>/Datasets)
+P2_IMPORT=""                                # optional source dir: copy reduced CSVs INTO Datasets/
+P2_OUT_SUBDIR="outputs/p2_experiments"      # (relative to P2_REPO_DIR) where MalDataGen writes
 PIN_COMMIT="PUT_PINNED_COMMIT_SHA_HERE"     # MalDataGen commit used for the paper
+P2_USE_VENV=1                               # 1 = isolated venv inside P2_REPO_DIR, 0 = system python3
+P2_PYTHON=""                                # resolved after venv setup
 
 MINIMAL=0; WITH_P2=0; ASSUME_YES=0; ONLY=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --data-dir)     DATA_DIR="$2"; shift 2 ;;
-        --out-dir)      OUT_DIR="$2";  shift 2 ;;
-        --only)         ONLY="$2";     shift 2 ;;
-        --minimal)      MINIMAL=1;     shift ;;
-        --with-p2)      WITH_P2=1;     shift ;;
-        --p2-data-dir)  P2_DATA_DIR="$2"; shift 2 ;;
-        --pin-commit)   PIN_COMMIT="$2";  shift 2 ;;
-        --yes|-y)       ASSUME_YES=1;  shift ;;
-        -h|--help)      grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        --data-dir)      DATA_DIR="$2"; shift 2 ;;
+        --out-dir)       OUT_DIR="$2";  shift 2 ;;
+        --only)          ONLY="$2";     shift 2 ;;
+        --minimal)       MINIMAL=1;     shift ;;
+        --with-p2)       WITH_P2=1;     shift ;;
+        --p2-data-dir)   P2_DATA_DIR="$2"; shift 2 ;;
+        --p2-import)     P2_IMPORT="$2";   shift 2 ;;
+        --p2-no-venv)    P2_USE_VENV=0; shift ;;
+        --pin-commit)    PIN_COMMIT="$2";  shift 2 ;;
+        --yes|-y)        ASSUME_YES=1;  shift ;;
+        -h|--help)       grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "Unknown option: $1"; exit 2 ;;
     esac
 done
@@ -98,6 +118,17 @@ install_dependencies() {
     fi
 }
 
+# ---- feature-selection method inferred from the reduced-dataset filename ---
+fs_method_of() {   # fs_method_of <dataset.csv> -> statistical|rfe|semidroid|lasso|other
+    case "$1" in
+        statistical_*) echo "statistical" ;;
+        rfe_*)         echo "rfe" ;;
+        semidroid_*)   echo "semidroid" ;;
+        lasso_*)       echo "lasso" ;;
+        *)             echo "other" ;;
+    esac
+}
+
 # ==========================================================================
 #  In-repo claims
 # ==========================================================================
@@ -132,6 +163,7 @@ run_claims() {
 
 # ==========================================================================
 #  Protocol P2 (external MalDataGen) — optional
+#  Orchestration ported from run_experiments_2.sh
 # ==========================================================================
 AE_CONFIG="
     --number_k_folds 5 \
@@ -174,6 +206,95 @@ VAE_CONFIG="
     --verbosity 20
 "
 
+# Git-LFS pointer detection (real CSVs must NOT start with the LFS header)
+is_lfs_pointer() {
+    local file="$1"
+    [[ -f "$file" ]] && head -n 1 "$file" 2>/dev/null | grep -q "^version https://git-lfs"
+}
+
+# Isolated venv inside the MalDataGen repo (mirrors run_experiments_2.sh)
+setup_p2_venv() {   # sets P2_PYTHON
+    local repo="$1"
+    local venv="$repo/venv"
+
+    if [[ "$P2_USE_VENV" -eq 0 ]]; then
+        P2_PYTHON="$(command -v python3)"
+        echo "🐍 P2 using system python3: $P2_PYTHON (no venv)"
+        return
+    fi
+
+    echo "=========================================================="
+    echo "  P2 — VIRTUAL ENVIRONMENT"
+    echo "=========================================================="
+    local pyver; pyver=$(python3 --version 2>&1 | grep -oP '(?<=Python )\d+\.\d+')
+    echo "🐍 Python version: ${pyver:-unknown}"
+
+    if [[ -d "$venv" ]]; then
+        echo "📦 venv already exists: $venv"
+        if confirm "   Recreate the P2 virtual environment?"; then
+            rm -rf "$venv"; python3 -m venv "$venv"; echo "   ✅ recreated"
+        else
+            echo "   Using existing venv"; P2_PYTHON="$venv/bin/python"; return
+        fi
+    else
+        echo "📦 Creating venv..."; python3 -m venv "$venv"; echo "   ✅ created at $venv"
+    fi
+
+    echo "🔧 Installing MalDataGen dependencies (TensorFlow stack — may take several minutes)..."
+    "$venv/bin/pip" install --upgrade pip setuptools wheel
+    "$venv/bin/pip" install numpy pandas matplotlib seaborn scikit-learn scipy
+    "$venv/bin/pip" install tensorflow
+    # honour the repo's own requirements if present, then a few known extras
+    [[ -f "$repo/requirements.txt" ]] && "$venv/bin/pip" install -r "$repo/requirements.txt"
+    "$venv/bin/pip" install xgboost gputil psutil plotly tenacity h5py joblib || true
+
+    if "$venv/bin/python" -c "import numpy, pandas, tensorflow, sklearn" 2>/dev/null; then
+        echo "   ✅ Core packages OK"
+    else
+        echo "   ⚠️  Verifying/fixing numpy..."; "$venv/bin/pip" install --force-reinstall numpy
+    fi
+    P2_PYTHON="$venv/bin/python"
+}
+
+# Pre-create the MalDataGen output tree so it never races on mkdir / logging.log
+precreate_p2_dirs() {   # precreate_p2_dirs <repo> <out_subdir> <model> <dataset_name>
+    local base="$1/$2/$3/$4"
+    mkdir -p "$base"/{Logs,ModelsSaved,GraphsSaved} \
+             "$base"/DataGenerated/{Training,Validation,Test}
+    touch "$base/Logs/logging.log" 2>/dev/null || true
+}
+
+# Copy reduced CSVs from a source dir INTO the MalDataGen Datasets/ (replaces
+# move_datasets.sh). Non-destructive (cp, keeps the source) and skips Git-LFS
+# pointers. No .gitattributes/LFS toggling: a plain cp into Datasets/ does not
+# pass through git's LFS filters, and this pipeline never commits.
+p2_import_datasets() {   # p2_import_datasets <src_dir> <dest_datasets_dir>
+    local src="$1" dest="$2"
+    [[ -d "$src" ]] || { echo "❌ --p2-import source not found: $src"; return 1; }
+    mkdir -p "$dest"
+
+    mapfile -t SRC_CSVS < <(cd "$src" 2>/dev/null && ls -1 *.csv 2>/dev/null | sort)
+    [[ ${#SRC_CSVS[@]} -gt 0 ]] || { echo "❌ no CSVs to import from $src"; return 1; }
+
+    local existing; existing=$(cd "$dest" 2>/dev/null && ls -1 *.csv 2>/dev/null | wc -l)
+    if [[ "${existing:-0}" -gt 0 ]]; then
+        echo "⚠  $dest already has $existing CSV(s); import overwrites matching names."
+        confirm "   Continue importing into $dest?" || { echo "   import skipped by user"; return 1; }
+    fi
+
+    echo "📥 Importing reduced CSVs:  $src  →  $dest"
+    local copied=0 skipped=0
+    for f in "${SRC_CSVS[@]}"; do
+        if is_lfs_pointer "$src/$f"; then
+            echo "   ⚠️  skip $f (Git-LFS pointer, not real data)"; skipped=$((skipped+1)); continue
+        fi
+        if cp -f "$src/$f" "$dest/$f"; then echo "   ✅ $f"; copied=$((copied+1))
+        else                                echo "   ❌ failed: $f"; fi
+    done
+    echo "   → imported $copied, skipped $skipped (LFS pointers)"
+    [[ $copied -gt 0 ]]
+}
+
 run_p2() {
     echo ""
     echo "=========================================================="
@@ -185,7 +306,7 @@ run_p2() {
 
     check_git
 
-    # 1) clone / pin MalDataGen
+    # 1) clone / pin MalDataGen ------------------------------------------------
     if [[ ! -d "$P2_REPO_DIR" ]]; then
         echo "📦 Cloning MalDataGen..."
         git clone "$P2_REPO_URL" "$P2_REPO_DIR" || { STATUS+=("❌ [P2] clone failed"); return; }
@@ -196,45 +317,156 @@ run_p2() {
         echo "⚠  No pinned commit set (use --pin-commit <SHA>); running the current checkout."
     fi
 
-    # 2) install MalDataGen deps
-    if [[ -f "$P2_REPO_DIR/requirements.txt" ]] && confirm "Install MalDataGen dependencies?"; then
-        pip3 install -r "$P2_REPO_DIR/requirements.txt"
+    # 1b) optional: import reduced CSVs into Datasets/ (replaces move_datasets.sh)
+    if [[ -n "$P2_IMPORT" ]]; then
+        p2_import_datasets "$P2_IMPORT" "$P2_REPO_DIR/Datasets" \
+            || { STATUS+=("❌ [P2] dataset import failed"); return; }
+        P2_DATA_DIR=""   # after importing, always read from the repo's Datasets/
     fi
 
-    # 3) datasets: reduced CSVs must be in the MalDataGen Datasets dir
+    # 1c) normalise --p2-data-dir to an ABSOLUTE path: the training loop runs from
+    #     inside the repo (cd), so a relative dir would resolve against the wrong cwd.
+    if [[ -n "$P2_DATA_DIR" ]]; then
+        if [[ -d "$P2_DATA_DIR" ]]; then P2_DATA_DIR="$(realpath "$P2_DATA_DIR")"
+        else echo "❌ --p2-data-dir not found: $P2_DATA_DIR"; STATUS+=("❌ [P2] bad --p2-data-dir"); return; fi
+    fi
+
+    # 2) datasets: reduced CSVs must be in the MalDataGen Datasets dir ---------
     local ds_dir="${P2_DATA_DIR:-$P2_REPO_DIR/Datasets}"
     mkdir -p "$ds_dir"
-    mapfile -t DATASETS < <(cd "$ds_dir" 2>/dev/null && ls -1 *.csv 2>/dev/null)
+    mapfile -t DATASETS < <(cd "$ds_dir" 2>/dev/null && ls -1 *.csv 2>/dev/null | sort)
     if [[ ${#DATASETS[@]} -eq 0 ]]; then
         echo "❌ No CSVs in $ds_dir — place the reduced datasets (statistical_/rfe_/semidroid_/lasso_*) there."
         STATUS+=("❌ [P2] no datasets in $ds_dir"); return
     fi
 
-    local p2_log_dir="$OUT_DIR/p2_logs_$(date '+%Y%m%d_%H%M%S')"; mkdir -p "$p2_log_dir"
+    # 2b) reject Git-LFS pointers (they look like CSVs but hold no data) -------
+    echo "🔍 Checking $ds_dir for Git-LFS pointers..."
+    local has_lfs=0
+    for f in "${DATASETS[@]}"; do
+        if is_lfs_pointer "$ds_dir/$f"; then
+            echo "   ⚠️  $f is an LFS pointer, not real data!"; has_lfs=1
+        fi
+    done
+    if [[ $has_lfs -eq 1 ]]; then
+        echo "❌ Some P2 datasets are LFS pointers. Run 'git lfs pull' where they were fetched."
+        STATUS+=("❌ [P2] LFS pointers in $ds_dir"); return
+    fi
+    echo "   ✅ ${#DATASETS[@]} real CSV(s) found"
+
+    # print inventory grouped by feature-selection method ---------------------
+    echo "📊 P2 datasets (by feature-selection method):"
+    for f in "${DATASETS[@]}"; do
+        local sz ln
+        sz=$(du -h "$ds_dir/$f" 2>/dev/null | cut -f1 || echo "?")
+        ln=$(wc -l < "$ds_dir/$f" 2>/dev/null || echo "?")
+        printf "   [%-11s] %-40s %6s  %s lines\n" "$(fs_method_of "$f")" "$f" "$sz" "$ln"
+    done
+
+    # 3) venv + deps ----------------------------------------------------------
+    setup_p2_venv "$P2_REPO_DIR"
+
+    # 4) plan + confirm -------------------------------------------------------
     local total=$(( ${#DATASETS[@]} * 2 )) n=0 fails=0
-    echo "📊 P2 experiments: $total  (${#DATASETS[@]} datasets × AE,VAE)"
+    echo ""
+    echo "📊 P2 experiments: $total  (${#DATASETS[@]} datasets × {AE, VAE})"
+    echo "   Estimated time: several hours per experiment."
     confirm "Start P2 training now?" || { STATUS+=("⏭  [P2] training skipped"); return; }
+
+    local p2_log_dir="$OUT_DIR/p2_logs_$(date '+%Y%m%d_%H%M%S')"; mkdir -p "$p2_log_dir"
+    local p2_summary="$p2_log_dir/summary.txt"
+    {
+        echo "P2 (MalDataGen TSTR) SUMMARY"
+        echo "============================"
+        echo "Date        : $(date '+%Y-%m-%d %H:%M:%S')"
+        echo "Datasets    : ${#DATASETS[@]}"
+        echo "Experiments : $total (AE + VAE)"
+        echo "Pinned SHA  : $PIN_COMMIT"
+        echo ""
+    } > "$p2_summary"
+
+    # 5) pre-create every output dir (defensive, before any training) ---------
+    echo "🔧 Pre-creating MalDataGen output tree..."
+    for MODEL in autoencoder variational; do
+        for DATASET in "${DATASETS[@]}"; do
+            precreate_p2_dirs "$P2_REPO_DIR" "$P2_OUT_SUBDIR" "$MODEL" "${DATASET%.csv}"
+        done
+    done
+    echo "   ✅ directories ready"
+
+    # 6) run — from inside the repo, using the venv python --------------------
+    export TF_ENABLE_ONEDNN_OPTS=0
+    local START; START=$(date +%s)
 
     ( cd "$P2_REPO_DIR" && {
         for MODEL in autoencoder variational; do
             [[ "$MODEL" == autoencoder ]] && CONFIG="$AE_CONFIG" || CONFIG="$VAE_CONFIG"
+            echo ""
+            echo "╔════════════════════════════════════════════════════╗"
+            [[ "$MODEL" == autoencoder ]] \
+                && echo "║  MODEL: AUTOENCODER (AE)                            ║" \
+                || echo "║  MODEL: VARIATIONAL AUTOENCODER (VAE)               ║"
+            echo "╚════════════════════════════════════════════════════╝"
+
             for DATASET in "${DATASETS[@]}"; do
-                n=$((n+1)); DNAME="${DATASET%.csv}"
-                echo "── [$n/$total] $MODEL / $DNAME"
-                DPATH="${ds_dir#$P2_REPO_DIR/}"; DPATH="Datasets/${DATASET}"
-                [[ -n "$P2_DATA_DIR" ]] && DPATH="$P2_DATA_DIR/$DATASET"
-                LOG="$OLDPWD/$p2_log_dir/${MODEL}_${DNAME}.log"
-                python3 main.py --model_type "$MODEL" \
+                n=$((n+1)); DNAME="${DATASET%.csv}"; FS="$(fs_method_of "$DATASET")"
+
+                # resolve the dataset path MalDataGen should read
+                if [[ -n "$P2_DATA_DIR" ]]; then DPATH="$P2_DATA_DIR/$DATASET"
+                else                             DPATH="Datasets/$DATASET"; fi
+
+                local OUTPUT_DIR="$P2_OUT_SUBDIR/$MODEL/$DNAME"
+                local LOG="$OLDPWD/$p2_log_dir/${MODEL}_${DNAME}.log"
+
+                echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+                echo "📊 [$n/$total]  $MODEL / $DNAME   (FS: $FS)"
+                echo "   log: $LOG"
+                echo "   ⚠️  may take several HOURS"
+
+                if [[ ! -f "$DPATH" ]]; then
+                    echo "   ⚠️  dataset not found: $DPATH — skipping"; fails=$((fails+1)); continue
+                fi
+
+                local ES; ES=$(date +%s)
+                "$P2_PYTHON" main.py \
+                    --model_type "$MODEL" \
                     --data_load_path_file_input "$DPATH" \
-                    --output_dir "outputs/p2_experiments/${MODEL}/${DNAME}" \
+                    --output_dir "$OUTPUT_DIR" \
                     $CONFIG 2>&1 | tee "$LOG"
-                [[ ${PIPESTATUS[0]} -ne 0 ]] && fails=$((fails+1))
+                local rc=${PIPESTATUS[0]}
+                local dur=$(( $(date +%s) - ES ))
+
+                if [[ $rc -eq 0 ]]; then
+                    echo "   ✅ done in $((dur/3600))h $((dur%3600/60))m $((dur%60))s"
+                    printf "✅ %-13s %-11s %-30s %dh %dm\n" \
+                        "$MODEL" "$FS" "$DNAME" "$((dur/3600))" "$((dur%3600/60))" >> "$OLDPWD/$p2_summary"
+                else
+                    echo "   ❌ exit $rc after $((dur/60))m $((dur%60))s"
+                    printf "❌ %-13s %-11s %-30s (exit %d)\n" \
+                        "$MODEL" "$FS" "$DNAME" "$rc" >> "$OLDPWD/$p2_summary"
+                    fails=$((fails+1))
+                fi
             done
         done
     } )
+
+    # the training loop ran in a subshell, so recover the failure count
+    # from the summary file (the subshell's `fails` does not propagate back)
+    local fails; fails=$(grep -c '^❌' "$p2_summary" 2>/dev/null || echo 0)
+
+    local DUR=$(( $(date +%s) - START ))
+    {
+        echo ""
+        echo "Total P2 time : $((DUR/86400))d $((DUR%86400/3600))h $((DUR%3600/60))m"
+        echo "Failures      : $fails/$total"
+    } >> "$p2_summary"
+
+    echo ""; echo "📄 P2 summary:"; cat "$p2_summary"
+    echo "📋 P2 logs   : $p2_log_dir"
+    echo "📁 P2 outputs: $P2_REPO_DIR/$P2_OUT_SUBDIR"
+
     if [[ $fails -eq 0 ]]; then STATUS+=("✅ [P2] AE+VAE ($total experiments)")
-    else STATUS+=("❌ [P2] AE+VAE ($fails/$total failed)"); fi
-    echo "📋 P2 logs: $p2_log_dir"
+    else                        STATUS+=("❌ [P2] AE+VAE ($fails/$total failed)"); fi
 }
 
 # ==========================================================================
@@ -249,13 +481,13 @@ echo "Output    : $OUT_DIR"
 echo "Mode      : $([[ $MINIMAL -eq 1 ]] && echo MINIMAL || echo FULL)$([[ $WITH_P2 -eq 1 ]] && echo ' +P2')"
 echo ""
 echo "Security  : in-repo claims run locally, need no root/sudo and no network."
-echo "            --with-p2 clones an external repo and installs deps (run in a venv/container)."
+echo "            --with-p2 clones an external repo and installs deps (isolated venv by default)."
 echo ""
 
 check_python
 install_dependencies
 
-if [[ ! -d "$DATA_DIR" ]] && ! want pvalue; then
+if [[ ! -d "$DATA_DIR" ]] && [[ "$ONLY" != "pvalue" ]]; then
     echo "❌ Data directory not found: $DATA_DIR"
     echo "   Get the datasets from https://github.com/AILabs4All/datasets-mh30plus (Git LFS),"
     echo "   or pass --data-dir. (The Wilcoxon audit 'pvalue' needs no data.)"
