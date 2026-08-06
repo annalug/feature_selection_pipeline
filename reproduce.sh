@@ -254,7 +254,9 @@ is_lfs_pointer() {
 }
 
 # Isolated venv inside the MalDataGen repo (mirrors run_experiments_2.sh)
-setup_p2_venv() {   # sets P2_PYTHON
+setup_p2_venv() {   # sets P2_PYTHON to an ABSOLUTE path — the training loop later does
+                     # `cd "$P2_REPO_DIR"`, so a path relative to $repo would resolve
+                     # against the wrong cwd once inside that subshell.
     local repo="$1"
     local venv="$repo/venv"
 
@@ -275,7 +277,7 @@ setup_p2_venv() {   # sets P2_PYTHON
         if confirm "   Recreate the P2 virtual environment?"; then
             rm -rf "$venv"; python3 -m venv "$venv"; echo "   ✅ recreated"
         else
-            echo "   Using existing venv"; P2_PYTHON="$venv/bin/python"; return
+            echo "   Using existing venv"; P2_PYTHON="$(realpath "$venv/bin/python")"; return
         fi
     else
         echo "📦 Creating venv..."; python3 -m venv "$venv"; echo "   ✅ created at $venv"
@@ -294,7 +296,7 @@ setup_p2_venv() {   # sets P2_PYTHON
     else
         echo "   ⚠️  Verifying/fixing numpy..."; "$venv/bin/pip" install --force-reinstall numpy
     fi
-    P2_PYTHON="$venv/bin/python"
+    P2_PYTHON="$(realpath "$venv/bin/python")"
 }
 
 # Pre-create the MalDataGen output tree so it never races on mkdir / logging.log
