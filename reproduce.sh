@@ -30,12 +30,22 @@
 #   ./reproduce.sh --with-p2 --pin-commit <SHA>      # also run the external MalDataGen P2
 #   ./reproduce.sh --with-p2 --p2-import ./reduzidos # copy reduced CSVs into Datasets/, then run P2
 #   ./reproduce.sh --with-p2 --p2-no-venv            # P2 using the current python3 (no venv)
+#   ./reproduce.sh --feature-selection --data-folder ./my_datasets  # run main.py's ensemble
+#                                                     # feature selection over a user-chosen folder
 #   ./reproduce.sh --yes                             # non-interactive
 #
 # P2 data:  the reduced CSVs (statistical_/rfe_/semidroid_/lasso_*) must end up in
 #           <P2_REPO_DIR>/Datasets/. Either place them there yourself, point to them
 #           with --p2-data-dir <ABS_DIR>, or let --p2-import <DIR> copy them in for you
 #           (non-destructive cp; Git-LFS pointers are skipped). This replaces move_datasets.sh.
+#           This is the "already fetching from configured datasets" path: it needs no
+#           --data-folder because it reads from <P2_REPO_DIR>/Datasets (or --p2-data-dir).
+#
+# Feature selection (main.py):  --feature-selection runs the chi2 + mutual-information +
+#           Random Forest ensemble selector (main.py) over every *.csv in the folder given
+#           with --data-folder (required, no default — this is the user's own raw-datasets
+#           folder, distinct from --data-dir/./data/Originais used by the in-repo claims).
+#           Reduced datasets + scores are written to <out-dir>/feature_selection/.
 #
 # KEYS for --only: p1, ablation, cost, multiclf, pvalue
 # ==========================================================================
@@ -62,23 +72,31 @@ P2_USE_VENV=1                               # 1 = isolated venv inside P2_REPO_D
 P2_PYTHON=""                                # resolved after venv setup
 
 MINIMAL=0; WITH_P2=0; ASSUME_YES=0; ONLY=""
+FEATURE_SELECTION=0; DATA_FOLDER=""
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --data-dir)      DATA_DIR="$2"; shift 2 ;;
-        --out-dir)       OUT_DIR="$2";  shift 2 ;;
-        --only)          ONLY="$2";     shift 2 ;;
-        --minimal)       MINIMAL=1;     shift ;;
-        --with-p2)       WITH_P2=1;     shift ;;
-        --p2-data-dir)   P2_DATA_DIR="$2"; shift 2 ;;
-        --p2-import)     P2_IMPORT="$2";   shift 2 ;;
-        --p2-no-venv)    P2_USE_VENV=0; shift ;;
-        --pin-commit)    PIN_COMMIT="$2";  shift 2 ;;
-        --yes|-y)        ASSUME_YES=1;  shift ;;
-        -h|--help)       grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+        --data-dir)           DATA_DIR="$2"; shift 2 ;;
+        --out-dir)            OUT_DIR="$2";  shift 2 ;;
+        --only)               ONLY="$2";     shift 2 ;;
+        --minimal)             MINIMAL=1;     shift ;;
+        --with-p2)             WITH_P2=1;     shift ;;
+        --p2-data-dir)         P2_DATA_DIR="$2"; shift 2 ;;
+        --p2-import)           P2_IMPORT="$2";   shift 2 ;;
+        --p2-no-venv)          P2_USE_VENV=0; shift ;;
+        --pin-commit)          PIN_COMMIT="$2";  shift 2 ;;
+        --feature-selection)   FEATURE_SELECTION=1; shift ;;
+        --data-folder)         DATA_FOLDER="$2"; shift 2 ;;
+        --yes|-y)              ASSUME_YES=1;  shift ;;
+        -h|--help)             grep '^#' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
         *) echo "Unknown option: $1"; exit 2 ;;
     esac
 done
+
+if [[ "$FEATURE_SELECTION" -eq 1 && -z "$DATA_FOLDER" ]]; then
+    echo "❌ --feature-selection requires --data-folder <path-to-your-datasets>"
+    exit 2
+fi
 
 mkdir -p "$OUT_DIR"
 LOG_DIR="$OUT_DIR/logs_$(date '+%Y%m%d_%H%M%S')"
@@ -127,6 +145,23 @@ fs_method_of() {   # fs_method_of <dataset.csv> -> statistical|rfe|semidroid|las
         lasso_*)       echo "lasso" ;;
         *)             echo "other" ;;
     esac
+}
+
+# ==========================================================================
+#  Feature selection (main.py) — user-chosen folder, opt-in with --feature-selection
+# ==========================================================================
+run_feature_selection() {
+    echo ""
+    echo "=========================================================="
+    echo "  FEATURE SELECTION (main.py) — $DATA_FOLDER"
+    echo "=========================================================="
+    if [[ ! -d "$DATA_FOLDER" ]]; then
+        echo "❌ --data-folder not found: $DATA_FOLDER"
+        STATUS+=("❌ [feature-selection] folder not found")
+        return 1
+    fi
+    run_step "Feature selection ensemble (chi2 + MI + RF)" "$LOG_DIR/feature_selection.log" \
+        python3 "$REPO_ROOT/main.py" --data-dir "$DATA_FOLDER" --out-dir "$OUT_DIR/feature_selection"
 }
 
 # ==========================================================================
@@ -476,9 +511,13 @@ echo "=========================================================="
 echo "Statistical Ranking — reproduction"
 echo "=========================================================="
 echo "Repo root : $REPO_ROOT"
-echo "Data dir  : $DATA_DIR"
+if [[ $FEATURE_SELECTION -eq 1 ]]; then
+    echo "Data folder : $DATA_FOLDER  (--feature-selection)"
+else
+    echo "Data dir  : $DATA_DIR"
+fi
 echo "Output    : $OUT_DIR"
-echo "Mode      : $([[ $MINIMAL -eq 1 ]] && echo MINIMAL || echo FULL)$([[ $WITH_P2 -eq 1 ]] && echo ' +P2')"
+echo "Mode      : $([[ $FEATURE_SELECTION -eq 1 ]] && echo FEATURE-SELECTION || { [[ $MINIMAL -eq 1 ]] && echo MINIMAL || echo FULL; })$([[ $WITH_P2 -eq 1 ]] && echo ' +P2')"
 echo ""
 echo "Security  : in-repo claims run locally, need no root/sudo and no network."
 echo "            --with-p2 clones an external repo and installs deps (isolated venv by default)."
@@ -487,7 +526,7 @@ echo ""
 check_python
 install_dependencies
 
-if [[ ! -d "$DATA_DIR" ]] && [[ "$ONLY" != "pvalue" ]]; then
+if [[ $FEATURE_SELECTION -eq 0 ]] && [[ ! -d "$DATA_DIR" ]] && [[ "$ONLY" != "pvalue" ]]; then
     echo "❌ Data directory not found: $DATA_DIR"
     echo "   Get the datasets from https://github.com/AILabs4All/datasets-mh30plus (Git LFS),"
     echo "   or pass --data-dir. (The Wilcoxon audit 'pvalue' needs no data.)"
@@ -497,7 +536,9 @@ fi
 confirm "Proceed?" || { echo "Cancelled."; exit 1; }
 
 START=$(date +%s)
-if [[ $MINIMAL -eq 1 ]]; then run_minimal; else run_claims; fi
+if [[ $FEATURE_SELECTION -eq 1 ]]; then run_feature_selection
+elif [[ $MINIMAL -eq 1 ]]; then run_minimal
+else run_claims; fi
 [[ $WITH_P2 -eq 1 ]] && run_p2
 DUR=$(( $(date +%s) - START ))
 

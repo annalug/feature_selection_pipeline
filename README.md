@@ -34,6 +34,7 @@ per-criterion budget that scales with the original dimensionality.
 | **Security concerns** | Risks of running the artifact |
 | **Installation** | Step-by-step environment setup |
 | **Minimal test** | Quick run to validate the installation |
+| **Feature selection on your own data** | Run the selector standalone, outside the paper's claims |
 | **Experiments** | Reproduction of the paper's claims |
 | **LICENSE** | Artifact license |
 
@@ -42,12 +43,14 @@ Repository layout:
 ```
 feature_selection_pipeline/
 ├── main.py                       # Statistical Ranking (MalwareFeatureSelector / BatchFeatureSelector)
+│                                  #   CLI: --data-dir --out-dir --target-col --target-features --correlation-threshold
 ├── ablation_study.py             # ablation: criteria, adaptive budget, vote threshold θ (Tables 6–7)
 ├── analyze_cost.py               # per-stage computational cost (§6.2)
 ├── bench_filter_order.py         # time/memory of filter orderings variance→correlation (§6.2)
 ├── pipeline_multiclf.py          # generalization across classifiers (Table 5)
 ├── audit_pvalue.py               # Wilcoxon floor audit (n=5 → min p = 0.0625)
-├── reproduce.sh                  # unified driver: in-repo claims + optional P2 (--with-p2)
+├── reproduce.sh                  # unified driver: in-repo claims + standalone feature selection
+│                                  #   (--feature-selection --data-folder) + optional P2 (--with-p2)
 ├── requirements.txt              # Python dependencies (pinned)
 ├── README.md                     # this file
 └── reproducibility/
@@ -70,8 +73,10 @@ The badges considered for this artifact are: **Available (SeloD)**, **Reproducib
 The artifact consists of:
 
 1. **`main.py`** — the Statistical Ranking pipeline (variance filter → correlation filter →
-   ensemble vote), applied per dataset via `BatchFeatureSelector`.
-2. **`reproduce.sh`** — a driver that automates the in-repo claims (Tables 3, 5, 6, 7 and §6.2).
+   ensemble vote), applied per dataset via `BatchFeatureSelector`. Runnable standalone over any
+   CSV folder (see "Feature selection on your own data" below).
+2. **`reproduce.sh`** — a driver that automates the in-repo claims (Tables 3, 5, 6, 7 and §6.2)
+   and also exposes `main.py` as a standalone step via `--feature-selection --data-folder`.
 3. **`reproducibility/`** — Protocol P1 reproduction (`reproduce_p1.py`) and the Protocol P2
    (TSTR) path via the external **MalDataGen** framework.
 
@@ -203,6 +208,47 @@ audit confirms the 0.0625 floor at n=5. A final summary lists the status of each
 
 > 📝 Adjust `--data-dir` to the folder that holds the CSVs (e.g. `Originais/` inside the
 > datasets repository) and `--target-col` if the label column is not named `class`.
+
+---
+
+# 🔍 Feature selection on your own data
+
+Independently of reproducing the paper's claims, the ensemble selector itself (χ² + Mutual
+Information + Random Forest, ≥ 2-of-3 vote) can be run over **any folder of your own CSV
+datasets** via `reproduce.sh --feature-selection`:
+
+```bash
+./reproduce.sh --feature-selection --data-folder /path/to/your/datasets
+```
+
+- `--data-folder <path>` is **required** with `--feature-selection` — this is the folder
+  containing your raw `*.csv` files, and is independent of `--data-dir` (which points to
+  `./data/Originais` for the paper's reproduction claims below).
+- Each CSV must have a binary target column (default `class`, every other column is treated
+  as a binary feature). Use `--out-dir` to change where results go (default
+  `reproduction_output/`).
+- Without `--feature-selection`, running the script proceeds to the paper's reproduction
+  claims instead (see "Experiments" below); the two modes don't mix in one call.
+- `--out-dir` changes where results are written, e.g.
+  `./reproduce.sh --feature-selection --data-folder ./meus_datasets --out-dir ./my_results`.
+
+**Output**, per dataset, under `<out-dir>/feature_selection/<dataset_name>/`:
+`<dataset_name>_reduced.csv` (selected features only), `_selected_features.csv`,
+per-criterion `_chi2_scores.csv` / `_mutual_info_scores.csv` / `_rf_importance_scores.csv` /
+`_ensemble_votes_scores.csv`, and a `_feature_importance.png` plot — plus a global
+`summary.csv` / `summary.txt` across all processed datasets.
+
+To call `main.py` directly (e.g. to change `--target-col`, `--target-features`, or
+`--correlation-threshold`) instead of going through `reproduce.sh`:
+
+```bash
+python3 main.py --data-dir /path/to/your/datasets --out-dir ./results \
+    --target-col class --correlation-threshold 0.95
+```
+
+> ℹ️ This is separate from Protocol P2 (`--with-p2`), which already reads from its own
+> configured dataset location (`<P2_REPO_DIR>/Datasets`, or `--p2-data-dir` /
+> `--p2-import`) and needs no `--data-folder` — see "Claim #4" under Experiments below.
 
 ---
 

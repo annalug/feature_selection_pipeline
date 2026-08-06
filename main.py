@@ -1,3 +1,4 @@
+import argparse
 import pandas as pd
 import numpy as np
 from sklearn.feature_selection import (
@@ -451,26 +452,38 @@ class BatchFeatureSelector:
         print(f"\n✓ Global summary saved to {summary_path}")
 
 
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Batch feature selection for binary malware permission datasets "
+                     "(chi2 + mutual information + Random Forest ensemble)."
+    )
+    parser.add_argument("--data-dir", default="data",
+                         help="Directory containing the input CSV datasets (default: data)")
+    parser.add_argument("--out-dir", default="results_2",
+                         help="Directory to write per-dataset results into (default: results_2)")
+    parser.add_argument("--target-col", default="class",
+                         help="Name of the binary target column (default: class)")
+    parser.add_argument("--target-features", type=int, default=None,
+                         help="Number of top features to keep per method (default: automatic, "
+                              "min(100, max(10, n_features // 10)))")
+    parser.add_argument("--correlation-threshold", type=float, default=0.95,
+                         help="Drop features correlated above this threshold (default: 0.95)")
+    return parser.parse_args()
+
+
 # Main execution
 if __name__ == "__main__":
-    # Configuration
-    DATA_DIR = 'data'
-    OUTPUT_DIR = 'results_2'
-    TARGET_COL = 'class'
-    
-    # Optional: set target features (None for automatic)
-    TARGET_FEATURES = None  # or specific number like 50
-    CORRELATION_THRESHOLD = 0.95
-    
+    args = parse_args()
+
     # Create batch processor
     processor = BatchFeatureSelector(
-        data_dir=DATA_DIR,
-        output_dir=OUTPUT_DIR,
-        target_col=TARGET_COL
+        data_dir=args.data_dir,
+        output_dir=args.out_dir,
+        target_col=args.target_col
     )
-    
+
     # Process all datasets
     processor.process_all(
-        target_features=TARGET_FEATURES,
-        correlation_threshold=CORRELATION_THRESHOLD
+        target_features=args.target_features,
+        correlation_threshold=args.correlation_threshold
     )
