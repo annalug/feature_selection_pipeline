@@ -257,8 +257,15 @@ is_lfs_pointer() {
 setup_p2_venv() {   # sets P2_PYTHON to an ABSOLUTE path — the training loop later does
                      # `cd "$P2_REPO_DIR"`, so a path relative to $repo would resolve
                      # against the wrong cwd once inside that subshell.
+                     # NOTE: must stay a *venv/bin/python* path, not fully realpath'd —
+                     # venv/bin/python is itself a symlink chain ending outside the venv
+                     # (…/python3 -> …/python3.12 -> /usr/bin/python3.12), and CPython's
+                     # venv detection keys off the invoked path ending in venv/bin/, not
+                     # the resolved symlink target. `realpath` on it silently drops back
+                     # to the system interpreter (no pandas/tensorflow/etc. importable).
     local repo="$1"
-    local venv="$repo/venv"
+    local repo_abs; repo_abs="$(cd "$repo" && pwd)"
+    local venv="$repo_abs/venv"
 
     if [[ "$P2_USE_VENV" -eq 0 ]]; then
         P2_PYTHON="$(command -v python3)"
@@ -277,7 +284,7 @@ setup_p2_venv() {   # sets P2_PYTHON to an ABSOLUTE path — the training loop l
         if confirm "   Recreate the P2 virtual environment?"; then
             rm -rf "$venv"; python3 -m venv "$venv"; echo "   ✅ recreated"
         else
-            echo "   Using existing venv"; P2_PYTHON="$(realpath "$venv/bin/python")"; return
+            echo "   Using existing venv"; P2_PYTHON="$venv/bin/python"; return
         fi
     else
         echo "📦 Creating venv..."; python3 -m venv "$venv"; echo "   ✅ created at $venv"
@@ -296,7 +303,7 @@ setup_p2_venv() {   # sets P2_PYTHON to an ABSOLUTE path — the training loop l
     else
         echo "   ⚠️  Verifying/fixing numpy..."; "$venv/bin/pip" install --force-reinstall numpy
     fi
-    P2_PYTHON="$(realpath "$venv/bin/python")"
+    P2_PYTHON="$venv/bin/python"
 }
 
 # Pre-create the MalDataGen output tree so it never races on mkdir / logging.log
