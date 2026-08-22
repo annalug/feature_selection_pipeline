@@ -75,6 +75,14 @@ PIN_COMMIT="PUT_PINNED_COMMIT_SHA_HERE"     # MalDataGen commit used for the pap
 P2_USE_VENV=1                               # 1 = isolated venv inside P2_REPO_DIR, 0 = system python3
 P2_PYTHON=""                                # resolved after venv setup
 
+# Table 4 needs all 4 methods x 11 datasets present in P2's Datasets/ (44 cells);
+# used only to print a coverage audit before running, never to block execution.
+P2_ALL_DATASETS=(adroit android_permissions androcrawl defensedroid_prs drebin215 \
+                 kronodroid_real_device kronodroid_emulator \
+                 defensedroid_apicalls_closeness defensedroid_apicalls_degree \
+                 defensedroid_apicalls_katz mh100k)
+P2_ALL_METHODS=(statistical rfe semidroid lasso)
+
 MINIMAL=0; WITH_P2=0; ASSUME_YES=0; ONLY=""
 FEATURE_SELECTION=0; DATA_FOLDER=""
 SKIP_CLAIMS=0                                # 1 = --p2-only: skip in-repo claims, no local data needed
@@ -151,6 +159,39 @@ fs_method_of() {   # fs_method_of <dataset.csv> -> statistical|rfe|semidroid|las
         lasso_*)       echo "lasso" ;;
         *)             echo "other" ;;
     esac
+}
+
+# ---- Table 4 coverage audit: 4 methods x 11 datasets, informational only ---
+p2_audit_matrix() {   # p2_audit_matrix <ds_dir> <dataset_filename...>
+    local ds_dir="$1"; shift
+    local -a present=("$@")
+    local total=0 found=0
+
+    echo ""
+    echo "🧮 P2 coverage matrix (Table 4 needs statistical/rfe/semidroid/lasso x all 11 datasets):"
+    for method in "${P2_ALL_METHODS[@]}"; do
+        local have=0 missing=()
+        for ds in "${P2_ALL_DATASETS[@]}"; do
+            total=$((total+1))
+            local hit=0
+            for f in "${present[@]}"; do
+                [[ "$f" == "${method}_${ds}"* ]] && hit=1 && break
+            done
+            if [[ $hit -eq 1 ]]; then have=$((have+1)); found=$((found+1))
+            else missing+=("$ds"); fi
+        done
+        if [[ ${#missing[@]} -eq 0 ]]; then
+            printf "   [%-11s] %2d/11 ✅ complete\n" "$method" "$have"
+        else
+            printf "   [%-11s] %2d/11 — missing: %s\n" "$method" "$have" "${missing[*]}"
+        fi
+    done
+    echo "   → $found/44 cells present in $ds_dir"
+    if [[ $found -lt 44 ]]; then
+        echo "   ⚠  Table 4 aggregates all 4 methods x 11 datasets; the gaps above won't be"
+        echo "      covered by this run. See reproducibility/README.md for baseline provenance"
+        echo "      (this audit does not block execution — it only reports what's missing)."
+    fi
 }
 
 # ==========================================================================
@@ -412,6 +453,8 @@ run_p2() {
         ln=$(wc -l < "$ds_dir/$f" 2>/dev/null || echo "?")
         printf "   [%-11s] %-40s %6s  %s lines\n" "$(fs_method_of "$f")" "$f" "$sz" "$ln"
     done
+
+    p2_audit_matrix "$ds_dir" "${DATASETS[@]}"
 
     # 3) venv + deps ----------------------------------------------------------
     setup_p2_venv "$P2_REPO_DIR"
