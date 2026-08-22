@@ -79,7 +79,7 @@ commands:
 | **Table 3** (recall/F1, orig vs reduced) | P1, §6 | `reproducibility/reproduce_p1.py` | `python reproducibility/reproduce_p1.py --data-dir ./data/Originais --out-dir ./p1_out` |
 | **Table 4** + **Figure 2** (TSTR, AE & VAE) | P2, §6.1 | orchestrated by `reproduce.sh` | `./reproduce.sh --p2-only --pin-commit <SHA>` — see [`REPRODUCING_MALDATAGEN.md`](./REPRODUCING_MALDATAGEN.md) |
 | **§6.2** computational cost | §6.2 | `analyze_cost.py`, `bench_filter_order.py` | `python bench_filter_order.py --data-dir ./data/Originais --out-dir ./filter_order_bench` |
-| **Table 5** (4 classifier families, MH100K) | P1-extended, §6.3 | *(exact protocol not yet scripted — see note below)* | — |
+| **Table 5** (4 classifier families, MH100K) | P1-extended, §6.3 | `reproducibility/reproduce_table5.py` | `python reproducibility/reproduce_table5.py --data-dir ./data/Originais --dataset mh100k --out-dir ./table5` |
 | **Tables 6 & 7** (ablation, budget/θ/criteria) | §6.4 | `ablation_study.py` | `python ablation_study.py --data-dir ./data/Originais --out-dir ./ablation_out` |
 | Wilcoxon floor note (min p = 0.0625 at n=5) | §5.3, §7 | `audit_pvalue.py` | `python audit_pvalue.py --out-dir ./pvalue` |
 
@@ -88,11 +88,17 @@ commands:
 > inside every fold and evaluates **five** classifiers (RandomForest, DecisionTree, KNN,
 > LogisticRegression, GradientBoosting) — see its own docstring, which frames it explicitly as
 > an extra experiment added in response to a reviewer concern about Random-Forest-centrism, not
-> as a Table 5 reproduction. Table 5 itself evaluates a **fixed**, already-reduced MH100K subset
-> (93 features, `statistical_mh100k.csv`) across four classifiers, with no per-fold reselection.
-> That exact protocol is not yet scripted in this repository; run
-> `python pipeline_multiclf.py --data-dir ./data/Originais --out-dir ./multiclf` for the
-> broader (5-classifier, per-fold) robustness check instead, if that's what you need.
+> as a Table 5 reproduction. `reproducibility/reproduce_table5.py` is the exact published
+> protocol instead: a subset selected **once** over the whole MH100K dataset (93 features), not
+> per-fold, evaluated across the four classifiers Table 5 actually reports (Decision Tree, k-NN,
+> Random Forest, Logistic Regression — confirmed against the paper, §6.3). This is deliberately
+> the same selected-once design the paper itself flags as optimistically biased relative to
+> Table 3's in-fold numbers (0.7502 vs. 0.8587 recall for Random Forest on MH100K, a 0.109
+> gap) — reproducing that bias is the point, not a defect. Pass `--reduced-csv <path>` instead
+> of `--data-dir`/`--dataset` to run against an already-reduced CSV (e.g.
+> `Maldatagen_additional_metrics/Datasets/statistical_mh100k.csv`) rather than selecting from
+> scratch. For the broader (5-classifier, per-fold) robustness check, run
+> `python pipeline_multiclf.py --data-dir ./data/Originais --out-dir ./multiclf` instead.
 
 Quick sanity check on two datasets (~2 min):
 `python ablation_study.py --datasets adroit,drebin215 --out-dir ./ablation_test`

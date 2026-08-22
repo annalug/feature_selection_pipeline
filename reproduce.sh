@@ -51,7 +51,7 @@
 #           folder, distinct from --data-dir/./data/Originais used by the in-repo claims).
 #           Reduced datasets + scores are written to <out-dir>/feature_selection/.
 #
-# KEYS for --only: p1, ablation, cost, multiclf, pvalue
+# KEYS for --only: p1, ablation, cost, table5, multiclf, pvalue
 # ==========================================================================
 
 set -uo pipefail
@@ -237,7 +237,9 @@ run_claims() {
         run_step "[C4] §6.2 — per-stage cost & speedup" "$LOG_DIR/cost_stages.log" \
             python3 "$REPO_ROOT/analyze_cost.py" --data-dir "$DATA_DIR" --out-dir "$OUT_DIR/cost"
     fi
-    if want multiclf; then run_step "[C4] Table 5 — classifier families" "$LOG_DIR/multiclf.log" \
+    if want table5;   then run_step "[C4] Table 5 — MH100K, 4 classifier families" "$LOG_DIR/table5.log" \
+        python3 "$REPRO_DIR/reproduce_table5.py" --data-dir "$DATA_DIR" --dataset mh100k --out-dir "$OUT_DIR/table5"; fi
+    if want multiclf; then run_step "[C4] Robustness check — 5 classifiers, per-fold (not Table 5)" "$LOG_DIR/multiclf.log" \
         python3 "$REPO_ROOT/pipeline_multiclf.py" --data-dir "$DATA_DIR" --out-dir "$OUT_DIR/multiclf"; fi
     if want pvalue;   then run_step "stat. note — Wilcoxon floor" "$LOG_DIR/pvalue.log" \
         python3 "$REPO_ROOT/audit_pvalue.py" --out-dir "$OUT_DIR/pvalue"; fi

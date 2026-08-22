@@ -9,8 +9,8 @@ produzido por uma versao anterior, nao versionada, do pipeline de estagios, que 
 existe). Para compatibilidade, se --raw apontar para um results_raw.csv ja existente
 (experiment=='stage'), o script analisa esse arquivo em vez de regerar.
 
-ESTAGIOS
---------
+ESTAGIOS (custo de LIMPEZA apenas — variancia + correlacao)
+-------------------------------------------------------------
   S0 baseline (all features)  — sem limpeza; RF sobre todas as features
   S1 variance only            — filtro de variancia (0.01); RF sobre as sobreviventes
   S2 correlation only         — filtro de correlacao (0.95); RF sobre as sobreviventes
@@ -18,6 +18,19 @@ ESTAGIOS
 
 As regras de limpeza espelham ablation_study.clean() e o RF usa RF_PARAMS — os mesmos
 valores de main.py — para que os numeros sejam consistentes com o resto do repositorio.
+
+AMORTIZACAO (custo COMPLETO da selecao — variancia + correlacao + chi2 + MI + RF + voto)
+------------------------------------------------------------------------------------------
+O artigo (§6.2) mede o custo de selecao (selection_seconds) a partir do pipeline INTEIRO,
+nao so variancia+correlacao: "The cleaning filters account for only 2.4% of the selection
+time (0.33s), the ranking stage for the remaining 97.6% (13.28s)". As estagios S0-S3 acima
+NAO incluem chi2/MI/RF/voto, entao NAO sao o selection_seconds do break-even. A funcao
+amortization_experiment() reaproveita main.MalwareFeatureSelector.auto_select() (o pipeline
+completo, identico ao que main.py roda) para medir esse custo corretamente, e calcula:
+  - break-even: numero de ciclos de retreino em que a economia de treino paga o custo
+    one-off da selecao: selection_s / (fit_full_s - fit_reduced_s)   (artigo: mediana 7,7)
+  - economia agregada em N atualizacoes: 1 - (selection_s + N*fit_reduced_s)/(N*fit_full_s)
+    (artigo: -6,2x custo extra em 1 rodada, 27,1% de economia em 10, 75,6% em 50)
 
 O que mede/analisa
 ------------------
@@ -28,6 +41,9 @@ O que mede/analisa
     reduzidas) — a alegacao de "~8,1x mais rapido" do artigo
   - custo de correlation_seconds normalizado por p^2, para checar se a etapa de correlacao
     escala quadraticamente com o numero de features (assinatura da matriz densa de corr)
+  - break-even e economia agregada da amortizacao (§6.2), a partir do custo COMPLETO de
+    selecao (ve acima) — so quando os dados sao gerados do zero (--data-dir); um --raw
+    antigo sem linhas experiment=='amortization' pula essa secao com um aviso
 
 USO
 ---
@@ -37,11 +53,17 @@ USO
 ATENCAO (memoria): S2 (correlacao sobre TODAS as features) materializa uma matriz densa
 p x p (float64). Para o MH100K (p=24.833) sao ~4,9 GB. Use --datasets para excluir o MH100K
 em maquinas com pouca RAM; e exatamente esse custo que a ordem v1 (variancia primeiro) evita.
+
+ATENCAO (tempo): amortization_experiment() roda o pipeline de selecao completo (chi2+MI+RF)
+por fold — mais lento que os estagios S0-S3. Em datasets grandes (ex. MH100K) pode demorar
+bastante; use --datasets para escopar um subconjunto se necessario.
 """
 
 from __future__ import annotations
 
 import argparse
+import contextlib
+import os
 import sys
 import time
 from pathlib import Path
@@ -155,6 +177,61 @@ def stage_experiment(name: str, path: Path, label_col: str, n_folds: int) -> lis
     return rows
 
 
+def amortization_experiment(name: str, path: Path, label_col: str, n_folds: int,
+                            correlation_threshold: float) -> list[dict]:
+    """Custo COMPLETO de selecao (variancia + correlacao + chi2 + MI + RF + voto), via
+    main.MalwareFeatureSelector.auto_select() — o mesmo pipeline que main.py roda —, e o
+    fit_seconds do RF sobre o full set vs. o subconjunto selecionado. Essas duas medidas sao
+    o selection_seconds/fit_full_s/fit_reduced_s de que amortization_table()/
+    amortization_savings() precisam para o break-even do §6.2 (distinto de stage_experiment,
+    que so mede variancia+correlacao — 2,4% do custo one-off segundo o proprio artigo)."""
+    from main import MalwareFeatureSelector  # repo root already on sys.path (see top of file)
+
+    df = pd.read_csv(path, low_memory=False)
+    if label_col not in df.columns:
+        raise KeyError(f"coluna '{label_col}' ausente. Colunas: {list(df.columns)[:8]}...")
+    X_df = df.drop(columns=[label_col]).select_dtypes(include=[np.number])
+    X_df = X_df.replace([np.inf, -np.inf], np.nan).fillna(0.0)
+    y = (df[label_col].to_numpy() > 0).astype(np.int8)
+    n_total = X_df.shape[1]
+
+    skf = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=SEED)
+    rows: list[dict] = []
+    for fold, (tr, _te) in enumerate(skf.split(X_df.to_numpy(), y)):
+        Xtr_df = X_df.iloc[tr].reset_index(drop=True)
+        ytr = y[tr]
+        train_df = Xtr_df.copy()
+        train_df["__label__"] = ytr
+
+        t0 = time.perf_counter()
+        selector = MalwareFeatureSelector(train_df, target_col="__label__",
+                                          variance_threshold=VARIANCE_THRESHOLD)
+        with open(os.devnull, "w") as fnull, contextlib.redirect_stdout(fnull):
+            selected = selector.auto_select(target_features=None,
+                                            correlation_threshold=correlation_threshold)
+        selection_s = time.perf_counter() - t0
+
+        selected = [c for c in selected if c in Xtr_df.columns]
+        if not selected:
+            selected = list(Xtr_df.columns[:1])
+
+        Xtr_arr = Xtr_df.to_numpy(dtype=np.float32)
+        fit_full_s = _fit_seconds(Xtr_arr, ytr, np.arange(n_total))
+        sel_idx = np.array([Xtr_df.columns.get_loc(c) for c in selected])
+        fit_reduced_s = _fit_seconds(Xtr_arr, ytr, sel_idx)
+
+        rows.append(dict(
+            experiment="amortization", dataset=name, fold=fold,
+            n_total=n_total, n_selected=len(selected),
+            selection_seconds=selection_s,
+            fit_full_seconds=fit_full_s, fit_reduced_seconds=fit_reduced_s,
+        ))
+        print(f"    [amortization] fold={fold}  selected={len(selected)}  "
+             f"selection_s={selection_s:.2f}  fit_full={fit_full_s:.3f}  "
+             f"fit_reduced={fit_reduced_s:.3f}")
+    return rows
+
+
 # ---------------------------------------------------------------------------
 # Analise (identica a versao original que consumia results_raw.csv)
 # ---------------------------------------------------------------------------
@@ -210,6 +287,52 @@ def corr_cost_by_p(g: pd.DataFrame) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
+# Amortizacao / break-even (§6.2) — custo COMPLETO de selecao (nao so S0-S3)
+# ---------------------------------------------------------------------------
+
+def load_amortization(raw: pd.DataFrame) -> pd.DataFrame | None:
+    df = raw[raw["experiment"] == "amortization"].copy()
+    return df if not df.empty else None
+
+
+def amortization_table(df: pd.DataFrame) -> pd.DataFrame:
+    """Por dataset: custo one-off completo de selecao (selection_s), custo de treino no
+    full set vs. no reduzido, e o break-even (numero de ciclos de retreino em que a economia
+    de treino paga a selecao) — artigo: mediana 7,7, de 1,4 (DefenseDroid PRS) a 72,6 (Drebin-215)."""
+    g = (df.groupby("dataset")
+         .agg(n_total=("n_total", "first"), n_selected=("n_selected", "mean"),
+              selection_s=("selection_seconds", "mean"),
+              fit_full_s=("fit_full_seconds", "mean"),
+              fit_reduced_s=("fit_reduced_seconds", "mean"))
+         .reset_index())
+    g["train_speedup_x"] = g.fit_full_s / g.fit_reduced_s
+    g["breakeven_cycles"] = g.selection_s / (g.fit_full_s - g.fit_reduced_s)
+    return g.sort_values("breakeven_cycles")
+
+
+def amortization_savings(g: pd.DataFrame, n_updates: tuple[int, ...] = (1, 10, 50)) -> pd.DataFrame:
+    """Custo agregado (soma sobre todos os datasets de g) com vs. sem o pipeline, para N
+    atualizacoes de modelo — artigo (agregado sobre os dez datasets do benchmark): uma unica
+    rodada custa 6,2x mais com o pipeline; 10 atualizacoes custam 27,1% menos; 50 custam
+    75,6% menos."""
+    total_selection = g.selection_s.sum()
+    total_fit_full = g.fit_full_s.sum()
+    total_fit_reduced = g.fit_reduced_s.sum()
+    rows = []
+    for n in n_updates:
+        cost_with = total_selection + n * total_fit_reduced
+        cost_without = n * total_fit_full
+        rows.append(dict(
+            n_updates=n,
+            cost_with_pipeline_s=cost_with,
+            cost_without_pipeline_s=cost_without,
+            ratio_x=cost_with / cost_without,
+            savings_pct=100 * (1 - cost_with / cost_without),
+        ))
+    return pd.DataFrame(rows)
+
+
+# ---------------------------------------------------------------------------
 
 def main() -> int:
     global SEED, N_FOLDS, VARIANCE_THRESHOLD, CORRELATION_THRESHOLD, RF_PARAMS, \
@@ -237,6 +360,10 @@ def main() -> int:
                     help="linhas usadas para ESTIMAR a matriz de correlacao em datasets "
                          "grandes (default: 20000); so tem efeito ao gerar do zero "
                          "(--data-dir), nao ao analisar --raw ja existente")
+    ap.add_argument("--skip-amortization", action="store_true",
+                    help="pula a medicao do custo COMPLETO de selecao (chi2+MI+RF) usada "
+                         "no break-even/amortizacao do §6.2 — roda so os estagios S0-S3 "
+                         "(mais rapido, mas sem a analise de break-even)")
     args = ap.parse_args()
 
     warn_if_nondefault(
@@ -273,6 +400,12 @@ def main() -> int:
                 rows += stage_experiment(p.stem, p, args.label_col, args.n_folds)
             except Exception as exc:                       # noqa: BLE001
                 print(f"    [ERRO] {p.stem}: {type(exc).__name__}: {exc}")
+            if not args.skip_amortization:
+                try:
+                    rows += amortization_experiment(p.stem, p, args.label_col, args.n_folds,
+                                                     args.correlation_threshold)
+                except Exception as exc:                   # noqa: BLE001
+                    print(f"    [ERRO amortization] {p.stem}: {type(exc).__name__}: {exc}")
         if not rows:
             raise SystemExit("nenhum resultado gerado")
         raw = pd.DataFrame(rows)
@@ -311,6 +444,32 @@ def main() -> int:
     print("CUSTO DE corr() NORMALIZADO POR p^2 (checagem de escala quadratica)")
     print("=" * 78)
     print(corr_p.round(10).to_string(index=False))
+
+    # 3) amortizacao / break-even (§6.2) — so quando ha dados (gerados com --data-dir e
+    #    sem --skip-amortization; um --raw antigo sem essas linhas so pula esta secao)
+    amort_df = load_amortization(raw)
+    if amort_df is not None:
+        amort = amortization_table(amort_df)
+        savings = amortization_savings(amort)
+
+        amort.to_csv(args.out_dir / "amortization_por_dataset.csv", index=False)
+        savings.to_csv(args.out_dir / "amortization_economia.csv", index=False)
+
+        print("\n" + "=" * 78)
+        print("AMORTIZACAO / BREAK-EVEN (§6.2) — custo COMPLETO de selecao (chi2+MI+RF)")
+        print("=" * 78)
+        print(amort.round(4).to_string(index=False))
+        print(f"\nbreak-even (mediana entre datasets): {amort.breakeven_cycles.median():.1f} "
+             f"ciclos de retreino  (artigo: 7,7)")
+
+        print("\n" + "-" * 78)
+        print("ECONOMIA AGREGADA (soma sobre todos os datasets acima)")
+        print("-" * 78)
+        print(savings.round(4).to_string(index=False))
+    else:
+        print("\n⚠  Sem linhas experiment=='amortization' no --raw usado — pulei a analise de "
+             "break-even/amortizacao do §6.2. Gere de novo com --data-dir (sem "
+             "--skip-amortization) para incluir essa secao.")
 
     print(f"\nArquivos em {args.out_dir.resolve()}")
     return 0

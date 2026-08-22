@@ -309,7 +309,7 @@ Every flag `reproduce.sh` accepts, in one place (also available at any time via
 |---|---|---|
 | `--data-dir <path>` | `./data/Originais` | Folder of full CSV datasets for the in-repo claims (Claims #1–#3 below). |
 | `--out-dir <path>` | `./reproduction_output` | Where every step writes its results and logs. |
-| `--only <keys>` | *(all)* | Run a subset of the in-repo claims. Comma-separated keys: `p1`, `ablation`, `cost`, `multiclf`, `pvalue`. |
+| `--only <keys>` | *(all)* | Run a subset of the in-repo claims. Comma-separated keys: `p1`, `ablation`, `cost`, `table5`, `multiclf`, `pvalue`. |
 | `--minimal` | off | ~2 min smoke test over 2 datasets (`adroit`, `drebin215`) instead of the full run — see "Minimal test" above. |
 | `--with-p2` | off | After the in-repo claims finish, also run Protocol P2 (external, MalDataGen). Still requires `--data-dir` for the in-repo part. |
 | `--p2-only` | off | Run **only** Protocol P2, skipping the in-repo claims entirely — no `--data-dir`/`./data/Originais` needed. Implies `--with-p2`. |
@@ -346,7 +346,7 @@ Outputs are written under `reproduction_output/` with per-step logs.
 |---|---|---|---|
 | #1 | Table 3 (P1) | `p1` | `--data-dir` |
 | #2 | Tables 6 & 7 (ablation) | `ablation` | `--data-dir` |
-| #3 | §6.2 cost + Table 5 (robustness check) | `cost,multiclf` | `--data-dir` |
+| #3 | §6.2 cost + Table 5 (+ robustness check) | `cost,table5,multiclf` | `--data-dir` |
 | #4 | Table 4 / Figure 2 (P2) | *(not an `--only` key — use `--with-p2`/`--p2-only`)* | external MalDataGen |
 | — | Wilcoxon floor note | `pvalue` | nothing |
 
@@ -389,26 +389,34 @@ ranker, and the value of a third ranker is dataset-dependent.
 
 ## Claim #3 — Cost and generalization (§6.2 and Table 5)
 
-Training on the reduced subsets is ~8.1× faster than on the full feature set; the reduced
-subsets generalize across classifier families.
+Training on the reduced subsets is ~8.1× faster than on the full feature set, with a median
+break-even of ~7.7 retraining cycles; the reduced subsets generalize across classifier
+families.
 
 ```bash
-./reproduce.sh --only cost,multiclf --data-dir ./data/Originais
+./reproduce.sh --only cost,table5 --data-dir ./data/Originais
 # equivalents:
 #   python bench_filter_order.py --data-dir ./data/Originais --out-dir ./cost
-#   python pipeline_multiclf.py  --data-dir ./data/Originais --out-dir ./multiclf
+#   python analyze_cost.py       --data-dir ./data/Originais --out-dir ./cost
+#   python reproducibility/reproduce_table5.py --data-dir ./data/Originais --dataset mh100k --out-dir ./table5
+#   python pipeline_multiclf.py  --data-dir ./data/Originais --out-dir ./multiclf   # broader robustness check
 ```
 
-- **Expected resources/time:** tens of minutes.
-- **Expected result:** per-stage cost and the S0-vs-S3 training speedup (§6.2, the ~8.1× figure).
-  `analyze_cost.py`/`bench_filter_order.py` measure wall-clock cost directly; they do **not**
-  currently recompute the amortization/break-even figures from §6.2 (the ~7.7-retraining-cycle
-  break-even, 27.1%/75.6% savings) — that reconstruction is not yet scripted in this repository.
-- **`pipeline_multiclf.py`** is a **complementary robustness check** (five classifiers,
-  RandomForest/DecisionTree/KNN/LogisticRegression/GradientBoosting, with feature reselection
-  inside every fold) — it does **not** reproduce Table 5's exact published protocol (a fixed,
-  already-reduced MH100K subset evaluated across four classifiers, no per-fold reselection).
-  See the "Note on Table 5" in
+- **Expected resources/time:** tens of minutes for `analyze_cost.py`'s S0–S3 stages; the
+  amortization measurement (`--data-dir`, unless `--skip-amortization`) additionally runs the
+  full χ²/MI/RF selection per fold, which is slower — see its own runtime notes.
+- **Expected result:** per-stage cost, the S0-vs-S3 training speedup (§6.2, the ~8.1× figure),
+  and — from `analyze_cost.py`'s amortization section — the break-even point (median ~7.7
+  retraining cycles) and aggregate savings (27.1% at 10 updates, 75.6% at 50), computed from
+  the **full** one-off selection cost (variance + correlation + χ² + Mutual Information +
+  Random Forest ranking + voting), not just the cleaning filters.
+- **`reproducibility/reproduce_table5.py`** is Table 5's exact published protocol: a subset
+  selected **once** over the whole MH100K dataset (93 features, not per-fold), evaluated
+  across the four classifiers Table 5 actually reports (Decision Tree, k-NN, Random Forest,
+  Logistic Regression).
+- **`pipeline_multiclf.py`** is a separate, **complementary robustness check** (five
+  classifiers — the four above plus GradientBoosting — with feature reselection inside every
+  fold), not a Table 5 reproduction. See the "Note on Table 5" in
   [`reproducibility/README.md`](reproducibility/README.md) for the full explanation.
 
 ## Claim #4 — TSTR comparison across methods (Table 4, Figure 2)
