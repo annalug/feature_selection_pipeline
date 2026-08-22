@@ -35,6 +35,7 @@ per-criterion budget that scales with the original dimensionality.
 | **Installation** | Step-by-step environment setup |
 | **Minimal test** | Quick run to validate the installation |
 | **Feature selection on your own data** | Run the selector standalone, outside the paper's claims |
+| **`reproduce.sh` flag reference** | Every flag the driver script accepts, one by one |
 | **Experiments** | Reproduction of the paper's claims |
 | **LICENSE** | Artifact license |
 
@@ -209,6 +210,20 @@ chmod +x reproduce.sh
 self-check against the published feature counts (lines ending in `... | OK`); and the Wilcoxon
 audit confirms the 0.0625 floor at n=5. A final summary lists the status of each step.
 
+**Real output** (captured directly from this repo, `adroit` only — `drebin215` is the same
+shape):
+
+```
+=== adroit | 11,476 amostras x 166 features | k adaptativo = 16
+    verificacao: C7 selecionou 15.2 features | summary.csv diz 15 | OK
+```
+
+```
+=== Protocol P1 — Table 3 ===
+dataset  features  orig_recall  delta_recall  red_recall  orig_f1  pvalue_recall  red_f1  reduction_pct  n_selected
+ adroit       166       0.7876       -0.0506       0.737   0.8437         0.0625   0.816          90.84          15
+```
+
 > 📝 Adjust `--data-dir` to the folder that holds the CSVs (e.g. `Originais/` inside the
 > datasets repository) and `--target-col` if the label column is not named `class`.
 
@@ -241,6 +256,25 @@ per-criterion `_chi2_scores.csv` / `_mutual_info_scores.csv` / `_rf_importance_s
 `_ensemble_votes_scores.csv`, and a `_feature_importance.png` plot — plus a global
 `summary.csv` / `summary.txt` across all processed datasets.
 
+**Real output** (captured directly from this repo, running on `adroit`):
+
+```
+============================================================
+FINAL: 166 -> 15 features
+Reduction: 91.0%
+============================================================
+Plot saved to .../adroit/adroit_feature_importance.png
+
+✓ Results saved to .../adroit/
+✓ Global summary saved to .../summary.txt
+
+================================================================================
+BATCH PROCESSING COMPLETE
+================================================================================
+Processed: 1/1 datasets
+Duration: 2.68 seconds
+```
+
 To call `main.py` directly (e.g. to change `--target-col`, `--target-features`, or
 `--correlation-threshold`) instead of going through `reproduce.sh`:
 
@@ -255,16 +289,55 @@ python3 main.py --data-dir /path/to/your/datasets --out-dir ./results \
 
 ---
 
+# 🎛️ `reproduce.sh` flag reference
+
+Every flag `reproduce.sh` accepts, in one place (also available at any time via
+`./reproduce.sh --help`, which prints the script's own header comments):
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--data-dir <path>` | `./data/Originais` | Folder of full CSV datasets for the in-repo claims (Claims #1–#3 below). |
+| `--out-dir <path>` | `./reproduction_output` | Where every step writes its results and logs. |
+| `--only <keys>` | *(all)* | Run a subset of the in-repo claims. Comma-separated keys: `p1`, `ablation`, `cost`, `multiclf`, `pvalue`. |
+| `--minimal` | off | ~2 min smoke test over 2 datasets (`adroit`, `drebin215`) instead of the full run — see "Minimal test" above. |
+| `--with-p2` | off | After the in-repo claims finish, also run Protocol P2 (external, MalDataGen). Still requires `--data-dir` for the in-repo part. |
+| `--p2-only` | off | Run **only** Protocol P2, skipping the in-repo claims entirely — no `--data-dir`/`./data/Originais` needed. Implies `--with-p2`. |
+| `--p2-data-dir <path>` | *(unset)* | Point P2 at reduced CSVs already sitting in `<path>`, instead of `Maldatagen_additional_metrics/Datasets/`. |
+| `--p2-import <dir>` | *(unset)* | Copy the reduced CSVs from `<dir>` into P2's `Datasets/` before running (non-destructive `cp`; skips Git-LFS pointers). |
+| `--p2-no-venv` | off | Use the current `python3` for P2 instead of creating an isolated venv inside `Maldatagen_additional_metrics/`. |
+| `--pin-commit <SHA>` | *(unset — warns)* | Pin the MalDataGen clone to a specific commit, for reproducibility. Without it, P2 runs whatever the clone's current checkout is. |
+| `--feature-selection` | off | Run `main.py`'s ensemble selector standalone over `--data-folder`, independent of every other mode — see "Feature selection on your own data" above. |
+| `--data-folder <path>` | *(required with `--feature-selection`)* | The folder of your own raw CSVs to run feature selection on. |
+| `--yes` / `-y` | off | Non-interactive: auto-confirm every prompt (venv creation, P2 start, etc.). Use for unattended/background runs. |
+| `-h` / `--help` | — | Print usage and exit. |
+
+Modes are mutually exclusive in the sense that only one drives the main run:
+`--feature-selection` and `--p2-only` each take over the whole invocation (in-repo claims are
+skipped); plain `--with-p2` runs the in-repo claims **and then** P2; everything else (`--only`,
+`--minimal`) shapes the in-repo claims themselves.
+
+---
+
 # 🧪 Experiments
 
 The `reproduce.sh` driver automates the in-repo claims. Each can be run in isolation with
-`--only <key>`. Full in-repo reproduction:
+`--only <key>` (see the flag reference above). Full in-repo reproduction:
 
 ```bash
 ./reproduce.sh --data-dir ./data/Originais
 ```
 
 Outputs are written under `reproduction_output/` with per-step logs.
+
+**At a glance:**
+
+| Claim | Paper artifact | `--only` key | Needs |
+|---|---|---|---|
+| #1 | Table 3 (P1) | `p1` | `--data-dir` |
+| #2 | Tables 6 & 7 (ablation) | `ablation` | `--data-dir` |
+| #3 | §6.2 cost + Table 5 (robustness check) | `cost,multiclf` | `--data-dir` |
+| #4 | Table 4 / Figure 2 (P2) | *(not an `--only` key — use `--with-p2`/`--p2-only`)* | external MalDataGen |
+| — | Wilcoxon floor note | `pvalue` | nothing |
 
 ## Claim #1 — Reduction preserving detection (Table 3, Protocol P1)
 
@@ -334,17 +407,32 @@ Trade-off (Recall × Reduction / 100) against Lasso, RFE and SemiDroid, using th
 and variational generators.
 
 This experiment depends on the external **MalDataGen** framework and is **not** reproduced by
-the in-repo scripts:
+the in-repo scripts. Step by step:
 
-```bash
-# from the repo root; clones/pins MalDataGen and runs AE+VAE.
-# place the reduced CSVs in Maldatagen_additional_metrics/Datasets/ (or pass --p2-data-dir):
-./reproduce.sh --with-p2 --pin-commit <MALDATAGEN_COMMIT_SHA>
+1. **Get the reduced CSVs.** Table 4 compares 4 methods (`statistical_`, `rfe_`, `semidroid_`,
+   `lasso_` prefixes) across the 11 datasets. `statistical_*` comes from this repo — run
+   `reproduce.sh --feature-selection --data-folder ./data/Originais` (see "Feature selection
+   on your own data" above) and rename the `*_reduced.csv` outputs with the `statistical_`
+   prefix. The `rfe_`/`semidroid_`/`lasso_` baselines come from elsewhere — see
+   `reproducibility/README.md` for what's currently documented about their provenance.
+2. **Place them where MalDataGen reads from.** Either put the CSVs directly in
+   `Maldatagen_additional_metrics/Datasets/`, or use `--p2-import <dir>` to copy them there, or
+   `--p2-data-dir <dir>` to point elsewhere entirely (see the flag reference above).
+3. **Run.** `--with-p2` runs the in-repo claims above it first (needs `--data-dir`/
+   `./data/Originais`) and then P2; `--p2-only` skips straight to P2 (no local dataset needed,
+   since P2 clones/reads its own):
 
-# --with-p2 also runs the in-repo claims above it (needs ./data/Originais). To run ONLY
-# Protocol P2 — no local dataset required, since P2 clones/reads its own — use --p2-only:
-./reproduce.sh --p2-only --pin-commit <MALDATAGEN_COMMIT_SHA>
-```
+   ```bash
+   # in-repo claims + P2:
+   ./reproduce.sh --with-p2 --pin-commit <MALDATAGEN_COMMIT_SHA>
+
+   # P2 only:
+   ./reproduce.sh --p2-only --pin-commit <MALDATAGEN_COMMIT_SHA>
+   ```
+
+   Either command prints a **coverage matrix** (which of the 4 methods × 11 datasets are
+   actually present in the Datasets folder) before starting — check that output before waiting
+   hours for a run that's missing baselines you need.
 
 - **Model configuration (as in the paper):**
   - **Autoencoder (AE):** 300 epochs · latent 128 · `leakyrelu` · dropout 0.10 · layers
@@ -359,6 +447,14 @@ the in-repo scripts:
 > minimum two-sided p-value of 0.0625 > 0.05 and is reported for completeness only
 > (`python audit_pvalue.py --out-dir ./pvalue`). The paper's inferential claims rest on the
 > Friedman test across datasets (§6.4).
+>
+> **Real output** (needs no data — runs anywhere):
+> ```
+> DESENHO USADO NO REPO: n_splits=5 (pipeline.py, pipeline_multiclf.py, ablation_study.py)
+> p-valor minimo possivel com 5 folds: 0.0625
+> => NENHUM resultado pode ser p<0.05 com 5 folds, seja qual for o efeito observado.
+> => Seriam necessarios pelo menos 6 folds para que p<0.05 seja sequer matematicamente atingivel.
+> ```
 
 ---
 
