@@ -294,6 +294,11 @@ ranker, and the value of a third ranker is dataset-dependent.
   ablation, §6.4).
 - **Expected result:** adaptive-budget × θ table (Table 6) and criterion ablation with the
   Kuncheva stability index (Table 7); each dataset prints its `... | OK` self-check.
+- **Scientific parameters** (seed, thresholds, folds, RF size, the ensemble's min-votes, and
+  the 20,000-row correlation-matrix subsampling used on the 5 largest datasets) are exposed as
+  CLI flags with defaults that reproduce the paper exactly — see the "Scientific parameters"
+  section in [`reproducibility/README.md`](reproducibility/README.md) for the full table and
+  what each one does.
 
 ## Claim #3 — Cost and generalization (§6.2 and Table 5)
 

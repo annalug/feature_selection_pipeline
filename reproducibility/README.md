@@ -19,6 +19,40 @@ The Random Forest used for ranking (Stage 2) and for P1 classification is fixed:
 `n_estimators=100`, `criterion=gini`, `max_depth=None`, `min_samples_split=2`,
 `min_samples_leaf=1`, `max_features=sqrt`, `bootstrap=True`, `random_state=42`, `n_jobs=-1`.
 
+### Scientific parameters — flags and defaults
+
+`main.py`, `ablation_study.py`, `analyze_cost.py`, and `bench_filter_order.py` expose the
+scientific parameters below as CLI flags. **Every default reproduces the paper's published
+configuration exactly** — running with no flags behaves exactly as before this was added. Any
+run using a non-default value prints a `⚠ Non-default parameter(s) in use` warning, so a
+deviation from the published configuration is always visible in the run's own output, never
+silent.
+
+| Flag | Default | Meaning | Scripts |
+|---|---|---|---|
+| `--seed` | `42` | RNG seed (`random_state`, correlation subsampling) | ablation, cost, bench |
+| `--n-folds` | `5` | `StratifiedKFold` splits | ablation, cost |
+| `--variance-threshold` | `0.01` | min. variance to keep a feature (Stage 1) | main, ablation, cost, bench |
+| `--correlation-threshold` | `0.95` | max. pairwise correlation before dropping a feature (Stage 1) | main, ablation, cost, bench |
+| `--n-estimators` | `100` | Random Forest trees (ranking + evaluation) | ablation, cost |
+| `--min-votes` | `2` | criteria (of chi², MI, RF) that must agree for a feature to survive the ensemble vote — the ≥2-of-3 consensus rule | main |
+| `--corr-subsample-rows` | `20000` | see below | ablation, cost, bench |
+
+**The 20,000-row correlation subsampling.** Estimating the dense p×p correlation matrix
+(Stage 1) over the full row count is what makes the memory cost roughly O(p²) regardless of
+*n* — tractable for the feature counts in this benchmark, but the row count still matters for
+wall-clock time on datasets with tens of thousands of samples. `clean()` (`ablation_study.py`)
+and its equivalents in `analyze_cost.py`/`bench_filter_order.py` therefore *estimate* the
+correlation matrix from a random subsample of at most 20,000 rows (`np.random.default_rng(SEED)`)
+when a dataset has more rows than that — the **variance filter and the chi²/MI/RF rankings
+still run over every row**; only the correlation-matrix estimate is subsampled. This affects 5
+of the 11 benchmark datasets (those with >20,000 samples): `android_permissions` (26,864),
+`kronodroid_emulator` (63,991), `kronodroid_real_device` (78,137), `androcrawl` (96,744), and
+`mh100k` (101,934). Because the subsample is randomized, it can in principle change which
+features cross the correlation threshold on those five datasets between runs with different
+`--seed` values — use `--corr-subsample-rows` (e.g. a value ≥ the dataset's row count) to
+disable subsampling entirely and confirm whether a given result is sensitive to it.
+
 ## 2. Datasets
 
 Raw datasets come from the group's public repository:

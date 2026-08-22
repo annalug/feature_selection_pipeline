@@ -54,11 +54,14 @@ from sklearn.model_selection import StratifiedKFold
 # torna ablation_study importavel independente do cwd
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ablation_study import (  # noqa: E402  (mesmas constantes de main.py)
+    CORR_SUBSAMPLE_ROWS,
     CORRELATION_THRESHOLD,
+    N_ESTIMATORS,
     N_FOLDS,
     RF_PARAMS,
     SEED,
     VARIANCE_THRESHOLD,
+    warn_if_nondefault,
 )
 
 STAGE_ORDER = [
@@ -91,13 +94,14 @@ def variance_filter(X: np.ndarray, idx: np.ndarray) -> np.ndarray:
 
 def correlation_filter(X: np.ndarray, idx: np.ndarray) -> np.ndarray:
     """Regra de ablation_study.clean(): matriz de correlacao densa (np.corrcoef),
-    subamostrando linhas acima de 20000, removendo colunas cuja maior correlacao
-    absoluta com uma coluna anterior excede CORRELATION_THRESHOLD."""
+    subamostrando linhas acima de CORR_SUBSAMPLE_ROWS, removendo colunas cuja maior
+    correlacao absoluta com uma coluna anterior excede CORRELATION_THRESHOLD."""
     if idx.size < 2:
         return idx
     sub = X[:, idx]
-    if sub.shape[0] > 20000:
-        rows = np.random.default_rng(SEED).choice(sub.shape[0], 20000, replace=False)
+    if sub.shape[0] > CORR_SUBSAMPLE_ROWS:
+        rows = np.random.default_rng(SEED).choice(sub.shape[0], CORR_SUBSAMPLE_ROWS,
+                                                    replace=False)
         sub = sub[rows]
     with np.errstate(invalid="ignore", divide="ignore"):
         corr = np.abs(np.corrcoef(sub, rowvar=False))
@@ -208,6 +212,12 @@ def corr_cost_by_p(g: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 
 def main() -> int:
+    global SEED, N_FOLDS, VARIANCE_THRESHOLD, CORRELATION_THRESHOLD, RF_PARAMS, \
+        CORR_SUBSAMPLE_ROWS
+    default_seed, default_n_folds = SEED, N_FOLDS
+    default_variance, default_correlation = VARIANCE_THRESHOLD, CORRELATION_THRESHOLD
+    default_n_estimators, default_subsample = N_ESTIMATORS, CORR_SUBSAMPLE_ROWS
+
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--data-dir", type=Path, default=None,
@@ -218,8 +228,31 @@ def main() -> int:
     ap.add_argument("--datasets", type=str, default="",
                     help="lista separada por virgula; vazio = todos os CSVs em --data-dir")
     ap.add_argument("--label-col", type=str, default="class")
-    ap.add_argument("--n-folds", type=int, default=N_FOLDS)
+    ap.add_argument("--seed", type=int, default=default_seed)
+    ap.add_argument("--n-folds", type=int, default=default_n_folds)
+    ap.add_argument("--variance-threshold", type=float, default=default_variance)
+    ap.add_argument("--correlation-threshold", type=float, default=default_correlation)
+    ap.add_argument("--n-estimators", type=int, default=default_n_estimators)
+    ap.add_argument("--corr-subsample-rows", type=int, default=default_subsample,
+                    help="linhas usadas para ESTIMAR a matriz de correlacao em datasets "
+                         "grandes (default: 20000); so tem efeito ao gerar do zero "
+                         "(--data-dir), nao ao analisar --raw ja existente")
     args = ap.parse_args()
+
+    warn_if_nondefault(
+        seed=(args.seed, default_seed), n_folds=(args.n_folds, default_n_folds),
+        variance_threshold=(args.variance_threshold, default_variance),
+        correlation_threshold=(args.correlation_threshold, default_correlation),
+        n_estimators=(args.n_estimators, default_n_estimators),
+        corr_subsample_rows=(args.corr_subsample_rows, default_subsample),
+    )
+    SEED = args.seed
+    N_FOLDS = args.n_folds
+    VARIANCE_THRESHOLD = args.variance_threshold
+    CORRELATION_THRESHOLD = args.correlation_threshold
+    CORR_SUBSAMPLE_ROWS = args.corr_subsample_rows
+    RF_PARAMS = dict(n_estimators=args.n_estimators, n_jobs=-1, random_state=SEED)
+
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
     # 1) obter os dados brutos: de um arquivo existente OU gerando do zero

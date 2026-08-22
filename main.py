@@ -159,32 +159,35 @@ class MalwareFeatureSelector:
         
         return selected
     
-    def auto_select(self, target_features=None, correlation_threshold=0.95):
+    def auto_select(self, target_features=None, correlation_threshold=0.95, min_votes=2):
         """
         Automatic feature selection pipeline
-        
+
         Args:
             target_features: Target number of features (None for automatic)
             correlation_threshold: Threshold for correlation filtering
+            min_votes: Minimum number of the three criteria (chi2, mutual info, RF) that
+                must agree on a feature for it to survive the ensemble vote (default: 2,
+                i.e. the >=2-of-3 consensus rule described in the paper)
         """
         print(f"Starting with {len(self.X.columns)} features\n")
-        
+
         # Step 1: Remove low variance
         features = self.remove_low_variance()
         self.X = self.X[features]
-        
+
         # Step 2: Remove highly correlated
         features = self.correlation_filter(correlation_threshold)
         self.X = self.X[features]
-        
+
         # Step 3: Ensemble selection
         if target_features is None:
             # Use 10% of original features or max 100
             target_features = min(100, max(10, len(self.original_features) // 10))
-        
+
         self.selected_features = self.ensemble_selection(
             methods=['chi2', 'mutual_info', 'rf'],
-            min_votes=2,
+            min_votes=min_votes,
             top_k=target_features
         )
         
@@ -274,18 +277,22 @@ class BatchFeatureSelector:
     Process multiple datasets from a directory
     """
     
-    def __init__(self, data_dir='data', output_dir='results', target_col='class'):
+    def __init__(self, data_dir='data', output_dir='results', target_col='class',
+                 variance_threshold=0.01):
         """
         Args:
             data_dir: Directory containing CSV files
             output_dir: Directory to save results
             target_col: Name of target column
+            variance_threshold: Minimum variance to keep a feature (default: 0.01),
+                forwarded to MalwareFeatureSelector for every dataset processed
         """
         self.data_dir = Path(data_dir)
         self.output_dir = Path(output_dir)
         self.target_col = target_col
+        self.variance_threshold = variance_threshold
         self.summaries = []
-        
+
         # Create output directory
         self.output_dir.mkdir(exist_ok=True)
         
@@ -295,14 +302,16 @@ class BatchFeatureSelector:
         print(f"Found {len(csv_files)} CSV files in {self.data_dir}/")
         return csv_files
     
-    def process_dataset(self, csv_path, target_features=None, correlation_threshold=0.95):
+    def process_dataset(self, csv_path, target_features=None, correlation_threshold=0.95,
+                         min_votes=2):
         """
         Process a single dataset
-        
+
         Args:
             csv_path: Path to CSV file
             target_features: Target number of features
             correlation_threshold: Correlation threshold
+            min_votes: Minimum criteria agreement for the ensemble vote (default: 2)
         """
         # Extract dataset name (everything before .csv)
         dataset_name = csv_path.stem
@@ -325,12 +334,14 @@ class BatchFeatureSelector:
             print(f"Target distribution:\n{df[self.target_col].value_counts()}\n")
             
             # Create selector
-            selector = MalwareFeatureSelector(df, target_col=self.target_col)
-            
+            selector = MalwareFeatureSelector(df, target_col=self.target_col,
+                                              variance_threshold=self.variance_threshold)
+
             # Auto select features
             selected_features = selector.auto_select(
                 target_features=target_features,
-                correlation_threshold=correlation_threshold
+                correlation_threshold=correlation_threshold,
+                min_votes=min_votes
             )
             
             # Create dataset-specific output directory
@@ -356,30 +367,32 @@ class BatchFeatureSelector:
             traceback.print_exc()
             return None
     
-    def process_all(self, target_features=None, correlation_threshold=0.95):
+    def process_all(self, target_features=None, correlation_threshold=0.95, min_votes=2):
         """
         Process all CSV files in data directory
-        
+
         Args:
             target_features: Target number of features for all datasets
             correlation_threshold: Correlation threshold for all datasets
+            min_votes: Minimum criteria agreement for the ensemble vote (default: 2)
         """
         start_time = datetime.now()
-        
+
         # Find all CSV files
         csv_files = self.find_csv_files()
-        
+
         if not csv_files:
             print(f"No CSV files found in {self.data_dir}/")
             return
-        
+
         # Process each file
         for i, csv_path in enumerate(csv_files, 1):
             print(f"\n[{i}/{len(csv_files)}]")
             summary = self.process_dataset(
                 csv_path,
                 target_features=target_features,
-                correlation_threshold=correlation_threshold
+                correlation_threshold=correlation_threshold,
+                min_votes=min_votes
             )
             
             if summary:
@@ -468,7 +481,22 @@ def parse_args():
                               "min(100, max(10, n_features // 10)))")
     parser.add_argument("--correlation-threshold", type=float, default=0.95,
                          help="Drop features correlated above this threshold (default: 0.95)")
-    return parser.parse_args()
+    parser.add_argument("--variance-threshold", type=float, default=0.01,
+                         help="Minimum variance to keep a feature (default: 0.01)")
+    parser.add_argument("--min-votes", type=int, default=2,
+                         help="Minimum number of the three criteria (chi2, mutual info, RF) "
+                              "that must agree on a feature for the ensemble vote to keep it "
+                              "(default: 2, i.e. the >=2-of-3 consensus rule in the paper)")
+    args = parser.parse_args()
+
+    if args.variance_threshold != 0.01 or args.min_votes != 2 or args.correlation_threshold != 0.95:
+        print("⚠  Non-default threshold/voting parameter(s) in use — this run no longer "
+              "reproduces the paper's exact Statistical Ranking configuration "
+              "(variance=0.01, correlation=0.95, min_votes=2/3). "
+              f"Using: variance={args.variance_threshold}, "
+              f"correlation={args.correlation_threshold}, min_votes={args.min_votes}.")
+
+    return args
 
 
 # Main execution
@@ -479,11 +507,13 @@ if __name__ == "__main__":
     processor = BatchFeatureSelector(
         data_dir=args.data_dir,
         output_dir=args.out_dir,
-        target_col=args.target_col
+        target_col=args.target_col,
+        variance_threshold=args.variance_threshold
     )
 
     # Process all datasets
     processor.process_all(
         target_features=args.target_features,
-        correlation_threshold=args.correlation_threshold
+        correlation_threshold=args.correlation_threshold,
+        min_votes=args.min_votes
     )

@@ -50,7 +50,13 @@ import numpy as np
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from ablation_study import CORRELATION_THRESHOLD, SEED, VARIANCE_THRESHOLD
+from ablation_study import (
+    CORR_SUBSAMPLE_ROWS,
+    CORRELATION_THRESHOLD,
+    SEED,
+    VARIANCE_THRESHOLD,
+    warn_if_nondefault,
+)
 
 
 def load_dataset(path: Path, label_col: str | None) -> tuple[np.ndarray, np.ndarray, list[str]]:
@@ -74,16 +80,17 @@ def variance_filter(X: np.ndarray, idx: np.ndarray, thr: float) -> np.ndarray:
 
 
 def correlation_filter(X: np.ndarray, idx: np.ndarray, thr: float,
-                       rng: np.random.Generator) -> np.ndarray:
+                       rng: np.random.Generator, subsample_rows: int = CORR_SUBSAMPLE_ROWS
+                       ) -> np.ndarray:
     """Mesma regra usada dentro de ablation_study.clean(): matriz de
     correlação densa via np.corrcoef (equivalente ao DataFrame.corr() denso
-    do main.py), com subamostragem de linhas acima de 20000, removendo
+    do main.py), com subamostragem de linhas acima de subsample_rows, removendo
     colunas cuja maior correlação absoluta com uma coluna anterior excede thr."""
     if idx.size < 2:
         return idx
     sub = X[:, idx]
-    if sub.shape[0] > 20000:
-        rows = rng.choice(sub.shape[0], 20000, replace=False)
+    if sub.shape[0] > subsample_rows:
+        rows = rng.choice(sub.shape[0], subsample_rows, replace=False)
         sub = sub[rows]
     with np.errstate(invalid="ignore", divide="ignore"):
         corr = np.abs(np.corrcoef(sub, rowvar=False))
@@ -97,7 +104,9 @@ def correlation_filter(X: np.ndarray, idx: np.ndarray, thr: float,
 # modo worker: roda dentro de um subprocesso isolado
 # ---------------------------------------------------------------------------
 
-def _run_worker(data_path: str, label_col: str | None, order: str, mem_limit_gb: float) -> None:
+def _run_worker(data_path: str, label_col: str | None, order: str, mem_limit_gb: float,
+                seed: int, variance_threshold: float, correlation_threshold: float,
+                corr_subsample_rows: int) -> None:
     if mem_limit_gb > 0:
         limit_bytes = int(mem_limit_gb * (1024 ** 3))
         try:
@@ -111,7 +120,7 @@ def _run_worker(data_path: str, label_col: str | None, order: str, mem_limit_gb:
     load_s = time.perf_counter() - t_load0
     n_total = X.shape[1]
 
-    rng = np.random.default_rng(SEED)
+    rng = np.random.default_rng(seed)
     stages = ["variance", "correlation"] if order == "v1" else ["correlation", "variance"]
 
     cur_idx = np.arange(n_total)
@@ -119,9 +128,10 @@ def _run_worker(data_path: str, label_col: str | None, order: str, mem_limit_gb:
     for stage in stages:
         t0 = time.perf_counter()
         if stage == "variance":
-            cur_idx = variance_filter(X, cur_idx, thr=VARIANCE_THRESHOLD)
+            cur_idx = variance_filter(X, cur_idx, thr=variance_threshold)
         else:
-            cur_idx = correlation_filter(X, cur_idx, thr=CORRELATION_THRESHOLD, rng=rng)
+            cur_idx = correlation_filter(X, cur_idx, thr=correlation_threshold, rng=rng,
+                                         subsample_rows=corr_subsample_rows)
         seconds = time.perf_counter() - t0
         peak_rss_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
         stage_results.append(dict(stage=stage, seconds=seconds,
@@ -139,10 +149,15 @@ def _run_worker(data_path: str, label_col: str | None, order: str, mem_limit_gb:
 # ---------------------------------------------------------------------------
 
 def run_one(script: Path, data_path: Path, label_col: str | None, order: str,
-           mem_limit_gb: float, timeout_s: float) -> dict:
+           mem_limit_gb: float, timeout_s: float, seed: int, variance_threshold: float,
+           correlation_threshold: float, corr_subsample_rows: int) -> dict:
     cmd = [sys.executable, str(script), "--worker",
           "--data-path", str(data_path), "--order", order,
-          "--mem-limit-gb", str(mem_limit_gb)]
+          "--mem-limit-gb", str(mem_limit_gb),
+          "--seed", str(seed),
+          "--variance-threshold", str(variance_threshold),
+          "--correlation-threshold", str(correlation_threshold),
+          "--corr-subsample-rows", str(corr_subsample_rows)]
     if label_col:
         cmd += ["--label-col", label_col]
 
@@ -241,11 +256,26 @@ def main() -> int:
     ap.add_argument("--mem-limit-gb", type=float, default=18.0,
                     help="teto de memória virtual do subprocesso worker; 0 desativa")
     ap.add_argument("--timeout-s", type=float, default=1800.0)
+    ap.add_argument("--seed", type=int, default=SEED)
+    ap.add_argument("--variance-threshold", type=float, default=VARIANCE_THRESHOLD)
+    ap.add_argument("--correlation-threshold", type=float, default=CORRELATION_THRESHOLD)
+    ap.add_argument("--corr-subsample-rows", type=int, default=CORR_SUBSAMPLE_ROWS,
+                    help="linhas usadas para ESTIMAR a matriz de correlação em datasets "
+                         "grandes (default: 20000)")
     args = ap.parse_args()
 
     if args.worker:
-        _run_worker(args.data_path, args.label_col, args.order, args.mem_limit_gb)
+        _run_worker(args.data_path, args.label_col, args.order, args.mem_limit_gb,
+                   args.seed, args.variance_threshold, args.correlation_threshold,
+                   args.corr_subsample_rows)
         return 0
+
+    warn_if_nondefault(
+        seed=(args.seed, SEED),
+        variance_threshold=(args.variance_threshold, VARIANCE_THRESHOLD),
+        correlation_threshold=(args.correlation_threshold, CORRELATION_THRESHOLD),
+        corr_subsample_rows=(args.corr_subsample_rows, CORR_SUBSAMPLE_ROWS),
+    )
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
     script = Path(__file__).resolve()
@@ -268,7 +298,9 @@ def main() -> int:
         print(f"=== {name} ===")
         for order in ("v1", "v2"):
             result = run_one(script, csv_path, args.label_col, order,
-                             args.mem_limit_gb, args.timeout_s)
+                             args.mem_limit_gb, args.timeout_s, args.seed,
+                             args.variance_threshold, args.correlation_threshold,
+                             args.corr_subsample_rows)
             status = result.get("status")
             print(f"    {order}: status={status} wall={result.get('wall_seconds'):.2f}s"
                  if status else f"    {order}: sem resultado")

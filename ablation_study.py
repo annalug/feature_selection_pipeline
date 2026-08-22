@@ -10,8 +10,12 @@ precisam ser combinadas corretamente (--k-mode adaptive --mi-estimator
 continuous) para reproduzir o método publicado. Errar uma delas invalida a
 rodada inteira, e foi o que aconteceu.
 
-Aqui não há flags de configuração: os valores que reproduzem main.py estão
-HARDCODED. Se você não passa nada, sai o certo.
+Os valores que reproduzem main.py são os DEFAULTS de todas as flags abaixo — se
+você não passa nada, sai exatamente o que reproduz main.py, como antes. As
+flags existem para inspecionar/parametrizar esses valores (pedido de revisor),
+não para editá-los às cegas: qualquer valor diferente do default dispara um
+aviso alto no início da execução, deixando explícito que aquela rodada deixou
+de ser a reprodução exata do método publicado.
 
 A OTIMIZAÇÃO QUE DEIXA ISSO RÁPIDO
 ----------------------------------
@@ -55,13 +59,19 @@ from sklearn.metrics import f1_score, recall_score
 from sklearn.model_selection import StratifiedKFold
 
 # ---------------------------------------------------------------------------
-# CONSTANTES — espelham main.py. Não há flag para mudá-las, de propósito.
+# CONSTANTES — espelham main.py. Estes são os DEFAULTS das flags de main();
+# rodar sem flags reproduz main.py exatamente, como sempre foi.
 # ---------------------------------------------------------------------------
 VARIANCE_THRESHOLD = 0.01     # main.py: variance_filter(threshold=0.01)
 CORRELATION_THRESHOLD = 0.95  # main.py: correlation_filter(threshold=0.95)
 N_FOLDS = 5
 SEED = 42
-RF_PARAMS = dict(n_estimators=100, n_jobs=-1, random_state=SEED)
+N_ESTIMATORS = 100
+RF_PARAMS = dict(n_estimators=N_ESTIMATORS, n_jobs=-1, random_state=SEED)
+CORR_SUBSAMPLE_ROWS = 20000    # linhas usadas para ESTIMAR a matriz de correlação em
+                                # datasets grandes (ver clean()); não afeta a etapa de
+                                # variância, nem os rankings chi2/MI/RF, que rodam sobre
+                                # todas as linhas do fold
 
 # Contagens publicadas em summary.csv, usadas como auto-verificação.
 EXPECTED = {
@@ -91,8 +101,9 @@ def clean(X: np.ndarray) -> np.ndarray:
 
     # matriz de correlação densa, como o DataFrame.corr() de main.py
     sub = X[:, idx]
-    if sub.shape[0] > 20000:                      # subamostra só para estimar r
-        rows = np.random.default_rng(SEED).choice(sub.shape[0], 20000, replace=False)
+    if sub.shape[0] > CORR_SUBSAMPLE_ROWS:         # subamostra só para estimar r
+        rows = np.random.default_rng(SEED).choice(sub.shape[0], CORR_SUBSAMPLE_ROWS,
+                                                    replace=False)
         sub = sub[rows]
     with np.errstate(invalid="ignore", divide="ignore"):
         corr = np.abs(np.corrcoef(sub, rowvar=False))
@@ -299,14 +310,59 @@ def resumo(df: pd.DataFrame, ovl: pd.DataFrame, out: Path) -> None:
     print(f"\nArquivos em {out.resolve()}")
 
 
+def warn_if_nondefault(**overrides: tuple) -> None:
+    """overrides: name -> (valor_usado, default). Avisa alto se algum valor usado
+    divergir do default que reproduz main.py — usado pelos três scripts que
+    compartilham essas constantes (ablation_study, analyze_cost, bench_filter_order)."""
+    diffs = {k: used for k, (used, default) in overrides.items() if used != default}
+    if diffs:
+        print("⚠  Non-default parameter(s) in use — this run no longer reproduces the "
+              "paper's exact Statistical Ranking configuration. Using: " +
+              ", ".join(f"{k}={v}" for k, v in diffs.items()) + "\n")
+
+
 def main() -> int:
+    global SEED, N_FOLDS, VARIANCE_THRESHOLD, CORRELATION_THRESHOLD, RF_PARAMS, \
+        CORR_SUBSAMPLE_ROWS
+    # snapshot dos defaults ANTES de qualquer reatribuição abaixo — são os valores
+    # que reproduzem main.py, usados tanto como default das flags quanto para
+    # detectar divergência em warn_if_nondefault()
+    default_seed, default_n_folds = SEED, N_FOLDS
+    default_variance, default_correlation = VARIANCE_THRESHOLD, CORRELATION_THRESHOLD
+    default_n_estimators, default_subsample = N_ESTIMATORS, CORR_SUBSAMPLE_ROWS
+
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--data-dir", type=Path, default=Path("data"))
     ap.add_argument("--out-dir", type=Path, default=Path("ablation_v2"))
     ap.add_argument("--datasets", type=str, default="")
     ap.add_argument("--label-col", type=str, default="class")
+    ap.add_argument("--seed", type=int, default=default_seed)
+    ap.add_argument("--n-folds", type=int, default=default_n_folds)
+    ap.add_argument("--variance-threshold", type=float, default=default_variance)
+    ap.add_argument("--correlation-threshold", type=float, default=default_correlation)
+    ap.add_argument("--n-estimators", type=int, default=default_n_estimators,
+                    help="Random Forest usado nos rankings e na avaliação (default: 100)")
+    ap.add_argument("--corr-subsample-rows", type=int, default=default_subsample,
+                    help="linhas usadas para ESTIMAR a matriz de correlação em datasets "
+                         "grandes; pode mudar quais features sobrevivem ao filtro de "
+                         "correlação (default: 20000)")
     args = ap.parse_args()
+
+    warn_if_nondefault(
+        seed=(args.seed, default_seed), n_folds=(args.n_folds, default_n_folds),
+        variance_threshold=(args.variance_threshold, default_variance),
+        correlation_threshold=(args.correlation_threshold, default_correlation),
+        n_estimators=(args.n_estimators, default_n_estimators),
+        corr_subsample_rows=(args.corr_subsample_rows, default_subsample),
+    )
+
+    SEED = args.seed
+    N_FOLDS = args.n_folds
+    VARIANCE_THRESHOLD = args.variance_threshold
+    CORRELATION_THRESHOLD = args.correlation_threshold
+    CORR_SUBSAMPLE_ROWS = args.corr_subsample_rows
+    RF_PARAMS = dict(n_estimators=args.n_estimators, n_jobs=-1, random_state=SEED)
 
     args.out_dir.mkdir(parents=True, exist_ok=True)
 
