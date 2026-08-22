@@ -599,6 +599,20 @@ if [[ $FEATURE_SELECTION -eq 0 ]] && [[ $SKIP_CLAIMS -eq 0 ]] && [[ ! -d "$DATA_
     exit 1
 fi
 
+# 5 of the 11 datasets-mh30plus datasets ship as .zip, not .csv (defensedroid_apicalls_*,
+# defensedroid_prs, mh100k) — every script here only reads *.csv, so an unextracted zip
+# silently means fewer datasets processed than expected. Warn, don't block: --datasets/--only
+# subsets are a legitimate reason to have fewer CSVs on purpose.
+if [[ -d "$DATA_DIR" ]]; then
+    unzipped=$(find "$DATA_DIR" -maxdepth 1 -name '*.zip' 2>/dev/null)
+    if [[ -n "$unzipped" ]]; then
+        echo "⚠  Found .zip file(s) in $DATA_DIR that main.py/reproduce.sh won't read (they only"
+        echo "   glob *.csv). Extract them first (cd $DATA_DIR && for z in *.zip; do unzip -o \"\$z\"; done):"
+        echo "$unzipped" | sed 's/^/     /'
+        echo ""
+    fi
+fi
+
 confirm "Proceed?" || { echo "Cancelled."; exit 1; }
 
 START=$(date +%s)

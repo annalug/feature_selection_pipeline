@@ -191,6 +191,20 @@ git clone https://github.com/AILabs4All/datasets-mh30plus.git ./data
 cd ./data && git lfs pull && cd ..
 ```
 
+> ⚠️ **5 of the 11 datasets ship as `.zip`, not `.csv`.** In `data/Originais/`,
+> `defensedroid_apicalls_closeness`, `defensedroid_apicalls_degree`, `defensedroid_apicalls_katz`,
+> `defensedroid_prs`, and `mh100k` are `.zip` archives; the other 6 (`adroit`, `androcrawl`,
+> `android_permissions`, `drebin215`, `kronodroid_emulator`, `kronodroid_real_device`) are
+> already plain `.csv`. Every script here reads `*.csv` directly (`glob("*.csv")`), so extract
+> those 5 before pointing `--data-dir` at the folder:
+> ```bash
+> cd data/Originais
+> for z in *.zip; do unzip -o "$z"; done
+> cd ../..
+> ```
+> Verify each extracted file matches its dataset's stem name (e.g. `mh100k.csv`) — rename it if
+> the archive unpacks to something else.
+
 Use the original (full) datasets for Protocol P1 and the ablation. For Protocol P2, follow the
 additional MalDataGen setup in `reproducibility/REPRODUCING_MALDATAGEN.md`.
 
