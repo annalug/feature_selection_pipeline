@@ -111,13 +111,10 @@ Dependencies are listed in `requirements.txt`, pinned to the versions reported i
 | -------------- | --------- |
 | `numpy`        | == 2.4.4  |
 | `scipy`        | == 1.17.1 |
-| `pandas`       | >= 3.0.2 (¹) |
+| `pandas`       | == 3.0.2  |
 | `scikit-learn` | == 1.8.0  |
 | `matplotlib`   | == 3.10.8 |
 | `seaborn`      | == 0.13.2 |
-
-(¹) `pandas` is currently the only unpinned entry in `requirements.txt`; pinning it to the
-exact version used for the paper's measurements is tracked as a follow-up.
 
 **Datasets** are public and shared by our group at
 **https://github.com/AILabs4All/datasets-mh30plus** (original, reduced, and balanced
