@@ -35,8 +35,11 @@ per-method recall / F1 / reduction  →  Table 4 (aggregate)  &  Figure 2 (per d
 Table 4 is a **comparison across four reduction methods**, so P2 consumes the reduced CSVs of
 *each* method (Statistical, RFE, SemiDroid, Lasso) over the 11 datasets, and aggregates.
 
-> **Fill in:** the provenance of the baseline reductions (`rfe_*`, `semidroid_*`, `lasso_*`) —
-> e.g. MH-FSF or your own scripts — so the comparison is reproducible end to end.
+The `rfe_*`/`semidroid_*`/`lasso_*` baselines were produced with **[MH-FSF](https://github.com/SBSegSF24/MH-FSF)**
+[Rocha et al. 2026a] — the same framework cited in the paper's related work (Table 1) — which
+implements RFE, LASSO, and SemiDroid among its 17 feature selection methods. Run it against
+the `datasets-mh30plus` originals to (re)generate the reduced CSVs for the other three methods
+before placing them in `Maldatagen_additional_metrics/Datasets/`.
 
 ---
 

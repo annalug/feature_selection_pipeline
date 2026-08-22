@@ -65,9 +65,15 @@ Protocol P2 compares four reduction methods, so its inputs are the **reduced** C
 | Prefix         | Method                       | Produced by                         |
 |----------------|------------------------------|-------------------------------------|
 | `statistical_` | Statistical Ranking (ours)   | `main.py` in this repo              |
-| `rfe_`         | RFE baseline                 | *(document your baseline source)*   |
-| `semidroid_`   | SemiDroid baseline           | *(document your baseline source)*   |
-| `lasso_`       | Lasso baseline               | *(document your baseline source)*   |
+| `rfe_`         | RFE baseline                 | [MH-FSF](https://github.com/SBSegSF24/MH-FSF) [Rocha et al. 2026a] |
+| `semidroid_`   | SemiDroid baseline           | [MH-FSF](https://github.com/SBSegSF24/MH-FSF) [Rocha et al. 2026a] |
+| `lasso_`       | Lasso baseline               | [MH-FSF](https://github.com/SBSegSF24/MH-FSF) [Rocha et al. 2026a] |
+
+All three baselines were generated with **MH-FSF** (Malware-Hunter Feature Selection
+Framework), the evaluation framework cited in the paper's related work (Table 1). Its
+`METHODS.md` confirms it implements RFE, LASSO, and SemiDroid among its 17 supported
+methods. See MH-FSF's own documentation for how to run it against the `datasets-mh30plus`
+originals and produce the `rfe_*`/`semidroid_*`/`lasso_*` reduced CSVs.
 
 ## 3. What reproduces what
 
