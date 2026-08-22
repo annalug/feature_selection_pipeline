@@ -30,3 +30,6 @@ data/
 .DS_Store
 .idea/
 .vscode/old/
+
+# Internal tracking (not part of the public artifact)
+REVIEW_RESPONSE_PLAN.md
