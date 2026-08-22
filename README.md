@@ -137,11 +137,12 @@ modalities:
 
 **Third-party resource access (Protocol P2 only):** the **MalDataGen** framework
 [Paim et al. 2025], repository
-https://github.com/MalwareDataLab/Maldatagen_additional_metrics (Python 3.10+, TensorFlow).
-No keys or credentials are required.
+https://github.com/MalwareDataLab/Maldatagen_additional_metrics (Python 3.10+, TensorFlow),
+pinned to commit `4b59489d8984be38bdf28ae681e14285098ae516` (the commit used for the paper's
+experiments — `reproduce.sh` pins to it by default). No keys or credentials are required.
 
-> **Fill in:** the pinned MalDataGen commit (`git rev-parse HEAD` in the clone you used) and
-> the provenance of the baseline reductions (RFE, SemiDroid, Lasso) compared under Protocol P2.
+> **Fill in:** the provenance of the baseline reductions (RFE, SemiDroid, Lasso) compared
+> under Protocol P2 — not yet documented; see `reproducibility/README.md`.
 
 ---
 

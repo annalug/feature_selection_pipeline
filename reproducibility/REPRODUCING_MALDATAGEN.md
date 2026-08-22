@@ -42,17 +42,20 @@ Table 4 is a **comparison across four reduction methods**, so P2 consumes the re
 
 ## Step 0 — Pin the MalDataGen version
 
-Results depend on the exact MalDataGen commit; the repo is actively developed.
+Results depend on the exact MalDataGen commit; the repo is actively developed. The commit
+used for the paper's experiments is `4b59489d8984be38bdf28ae681e14285098ae516` — `reproduce.sh`
+already pins to it by default (`PIN_COMMIT`), so `--with-p2`/`--p2-only` need no
+`--pin-commit` flag to reproduce the paper's exact setup. To pin manually:
 
 ```bash
 git clone https://github.com/MalwareDataLab/Maldatagen_additional_metrics.git
 cd Maldatagen_additional_metrics
-git checkout <PIN_COMMIT_SHA_HERE>   # ← the commit you used for the paper
+git checkout 4b59489d8984be38bdf28ae681e14285098ae516
 git rev-parse HEAD                    # confirm
 ```
 
-> Find the SHA with `git rev-parse HEAD` in the clone you actually ran. Do not pin to "main"
-> (it moves).
+> Pass `--pin-commit <SHA>` to `reproduce.sh` to override this default and pin a different
+> commit instead. Do not pin to "main" (it moves).
 
 Environment (per MalDataGen): Python 3.10+, TensorFlow. Install with either:
 
@@ -150,6 +153,6 @@ models, plus a top-level SVM comparison PDF.
 
 ## Versions used (fill in and report)
 
-- MalDataGen commit: `<PIN_COMMIT_SHA_HERE>`
+- MalDataGen commit: `4b59489d8984be38bdf28ae681e14285098ae516`
 - Python / TensorFlow: `<x.y.z>` / `<x.y.z>`
 - OS / GPU / CUDA: `<...>`

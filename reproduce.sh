@@ -71,7 +71,7 @@ P2_REPO_DIR="Maldatagen_additional_metrics"
 P2_DATA_DIR=""                              # reduced CSVs for P2 (default: <P2_REPO_DIR>/Datasets)
 P2_IMPORT=""                                # optional source dir: copy reduced CSVs INTO Datasets/
 P2_OUT_SUBDIR="outputs/p2_experiments"      # (relative to P2_REPO_DIR) where MalDataGen writes
-PIN_COMMIT="PUT_PINNED_COMMIT_SHA_HERE"     # MalDataGen commit used for the paper
+PIN_COMMIT="4b59489d8984be38bdf28ae681e14285098ae516"  # MalDataGen commit used for the paper
 P2_USE_VENV=1                               # 1 = isolated venv inside P2_REPO_DIR, 0 = system python3
 P2_PYTHON=""                                # resolved after venv setup
 
