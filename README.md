@@ -106,14 +106,17 @@ The artifact consists of:
 
 Dependencies are listed in `requirements.txt`, pinned to the versions reported in the paper (§5.2):
 
-| Library        | Version |
-| -------------- | ------- |
-| `numpy`        | 2.4.4   |
-| `scipy`        | 1.17.1  |
-| `pandas`       | 3.0.2   |
-| `scikit-learn` | 1.8.0   |
-| `matplotlib`   | ≥ 3.4.0 |
-| `seaborn`      | ≥ 0.11.0 |
+| Library        | Version   |
+| -------------- | --------- |
+| `numpy`        | == 2.4.4  |
+| `scipy`        | == 1.17.1 |
+| `pandas`       | >= 3.0.2 (¹) |
+| `scikit-learn` | == 1.8.0  |
+| `matplotlib`   | == 3.10.8 |
+| `seaborn`      | == 0.13.2 |
+
+(¹) `pandas` is currently the only unpinned entry in `requirements.txt`; pinning it to the
+exact version used for the paper's measurements is tracked as a follow-up.
 
 **Datasets** are public and shared by our group at
 **https://github.com/AILabs4All/datasets-mh30plus** (original, reduced, and balanced
@@ -302,8 +305,8 @@ ranker, and the value of a third ranker is dataset-dependent.
 
 ## Claim #3 — Cost and generalization (§6.2 and Table 5)
 
-Training on the reduced subsets is ~8.1× faster with amortization after ≈ 8 retraining cycles;
-the reduced subsets generalize across classifier families.
+Training on the reduced subsets is ~8.1× faster than on the full feature set; the reduced
+subsets generalize across classifier families.
 
 ```bash
 ./reproduce.sh --only cost,multiclf --data-dir ./data/Originais
@@ -313,8 +316,16 @@ the reduced subsets generalize across classifier families.
 ```
 
 - **Expected resources/time:** tens of minutes.
-- **Expected result:** per-stage cost and speedup (§6.2); Table 5 with recall/F1/MCC of the
-  reduced `mh100k` subset across four classifier families (recall span of only 0.022).
+- **Expected result:** per-stage cost and the S0-vs-S3 training speedup (§6.2, the ~8.1× figure).
+  `analyze_cost.py`/`bench_filter_order.py` measure wall-clock cost directly; they do **not**
+  currently recompute the amortization/break-even figures from §6.2 (the ~7.7-retraining-cycle
+  break-even, 27.1%/75.6% savings) — that reconstruction is not yet scripted in this repository.
+- **`pipeline_multiclf.py`** is a **complementary robustness check** (five classifiers,
+  RandomForest/DecisionTree/KNN/LogisticRegression/GradientBoosting, with feature reselection
+  inside every fold) — it does **not** reproduce Table 5's exact published protocol (a fixed,
+  already-reduced MH100K subset evaluated across four classifiers, no per-fold reselection).
+  See the "Note on Table 5" in
+  [`reproducibility/README.md`](reproducibility/README.md) for the full explanation.
 
 ## Claim #4 — TSTR comparison across methods (Table 4, Figure 2)
 
