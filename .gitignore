@@ -20,6 +20,7 @@ filter_order_bench/
 pvalue/
 saida_teste/
 outputs/
+p1_repeated/
 *_out/
 *.log
 /old
@@ -44,3 +45,4 @@ comparativo_papers_v2.xlsx
 papers/
 main.tex
 references.bib
+PAPER_EXTENDED_STATUS.md
